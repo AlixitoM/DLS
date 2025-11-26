@@ -1,3 +1,4 @@
+package Proyecto;
 import java.util.*;
 import java.util.function.BiConsumer;
 
@@ -6,7 +7,7 @@ import java.util.function.BiConsumer;
  * tokeniza el código y realiza la clasificación léxica.
  * Los estados y transiciones del AFD ahora se generan dinámicamente.
  */
-public class DSLCore {
+public class DSLCORE {
     
     // --- 1. Definición de Palabras Reservadas Finales ---
 
@@ -35,38 +36,49 @@ public class DSLCore {
 
     // Genera todos los estados intermedios a partir de las palabras reservadas finales.
     private static Set<String> getEstadosDSL() {
+        //Creamos una lista vacia en la cual se almacenarn los posibles estados
         Set<String> todosLosEstados = new HashSet<>();
+        // se agrega el estado inicio
         todosLosEstados.add("INICIO");
         
-        for (String pr : getEstadosAceptacionDSL()) {
+        // Se usan los estados de aceptacion en orden inversa para obtener 
+        //sus palabras reservadas
+        for (String pr : getEstadosAceptacionDSL()) { //por cada elemento del arreglo que retorna estados de aceptacion
+          // ciclamos la lista
             for (int i = 1; i <= pr.length(); i++) {
+            // y  creamos un estado con la cadena menos la ultima letra y el destino es el estado actual
                 todosLosEstados.add(pr.substring(0, i));
             }
         }
+       // ahora ya tenemos todos los estados 
         return todosLosEstados;
     }
 
-    // Genera todas las transiciones (Estado Origen -> {Símbolo -> Estado Destino}).
+    // Genera todas las transiciones (Estado Origen)
     private static Map<String, Map<Character, String>> getTransicionesDSL() {
         Map<String, Map<Character, String>> transiciones = new HashMap<>();
         
-        // 1. Inicializar todos los estados de origen
+        // 1. a los estados les agrega un hash map que sera el encargado de definir las transiciones
         for (String estado : getEstadosDSL()) {
             transiciones.put(estado, new HashMap<>());
         }
         
         // 2. Generar transiciones a partir de las palabras reservadas finales
+       // por cada estado de aceptacion
         for (String pr : getEstadosAceptacionDSL()) {
-            String estadoOrigen = "INICIO";
-            
+            //String estadoOrigen = "INICIO";
+            // recorre desde 0 hasta su tamaño
             for (int i = 0; i < pr.length(); i++) {
+                // variable simbolo
                 char simbolo = pr.charAt(i);
+               // esta letra ira a una posicion mas de su resultado
                 String estadoDestino = pr.substring(0, i + 1);
                 
+               // se valida que no sea el primer estado
                 String origen = (i == 0) ? "INICIO" : pr.substring(0, i);
 
                 transiciones.get(origen)
-                            .put(simbolo, estadoDestino);
+                            .put(simbolo, estadoDestino); // define la transicion al estado de destino 
             }
         }
         return transiciones;
@@ -88,7 +100,7 @@ public class DSLCore {
      */
     public static String[] tokenizarLinea(String entrada) {
         // Manejo de comentarios
-        int indiceComentario = entrada.indexOf('#');
+        int indiceComentario = entrada.indexOf("//");
         if (indiceComentario != -1) {
             entrada = entrada.substring(0, indiceComentario);
         }
@@ -109,16 +121,7 @@ public class DSLCore {
         for (int i = 0; i < tokens.length; i++) {
             String t = tokens[i];
             
-            if (i + 1 < tokens.length) {
-                String nextT = tokens[i + 1];
-                String combined = t + nextT;
-                // Reconstruir operadores de dos caracteres
-                if (combined.equals("==") || combined.equals("!=") || combined.equals("<=") || combined.equals(">=") || combined.equals("&&") || combined.equals("||")) {
-                    listaTokens.add(combined);
-                    i++;
-                    continue;
-                }
-            }
+         
             listaTokens.add(t);
         }
         return listaTokens.toArray(new String[0]);
@@ -127,11 +130,16 @@ public class DSLCore {
     /**
      * Itera sobre todas las líneas del código fuente para generar tokens iniciales.
      */
+    
+   
     public static Token[] tokenizador(String entrada) {
+        // Hace un arreglo de tipo string con las lineas, separandolas por cada salto de linea
         String[] lineas = entrada.split("\n");
+   
+        // Crea un listatokens
         List<Token> listaTokens = new ArrayList<>();
         int numLinea = 1;
-
+        //Recorre todas las linea 
         for (String linea : lineas) {
             String[] toks = tokenizarLinea(linea);
             for (String t : toks) {
