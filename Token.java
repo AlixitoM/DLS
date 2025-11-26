@@ -1,9 +1,13 @@
+
+package Proyecto;
+
 /**
- * Clase que representa un token léxico clasificado.
- */
+ * Clase que representa un token léxico clasificado.*/
+
 public class Token {
-    private String lexema;
-    private int linea;
+   // Atributos que tendra el token
+    private String lexema;// clasificacion a la que pertenece
+    private int linea;// linea del codigo que se encuentra el token
     private String tipoToken; // Tipo léxico (e.g., PALABRA_RESERVADA, LITERAL_NUMERICA)
     private String estadoFinal; // Estado final del AFD (solo relevante para Palabras Reservadas)
     private boolean existeSimbolo; // Indica si el lexema fue reconocido (true) o si es un error (false)
@@ -47,9 +51,4 @@ public class Token {
         return existeSimbolo;
     }
 
-    @Override
-    public String toString() {
-        return String.format("Token(%-18s, '%-20s', L:%d, E:%-10s, Reconocido: %s)",
-            tipoToken, lexema, linea, estadoFinal, existeSimbolo ? "Sí" : "No");
-    }
-}
+ 
