@@ -4,7 +4,6 @@ import java.util.function.BiConsumer;
 /**
  * Clase principal que inicializa el AFD para el DSL de Estructuras de Datos,
  * tokeniza el código y realiza la clasificación léxica.
- * Basado en la estructura de AFD/MatrixCore, pero con el vocabulario expandido.
  */
 public class DSLCore {
     
@@ -31,7 +30,7 @@ public class DSLCore {
             "BU", "BUS", "BUSC", "BUSCA", "BUSCAR",
             "BF", "BFS",
             // D (DFS, DEQUEUE, DESAPILAR, DESENCOLAR)
-            "D", "DF", "DFS", "DE", "DES", "DESA", "DESAP", "DESAPI", "DESAPIL", "DESAPILA", "DESAPILAR", 
+            "D", "DF", "DFS", "DE", "DES", "DESA", "DESAP", "DESAPI", "DESAPIL", "DESAPILA", "DESAPILAR",
             "DESE", "DESEN", "DESENC", "DESENCO", "DESENCOL", "DESENCOLA", "DESENCOLAR",
             "DEQ", "DEQU", "DEQUE", "DEQUEU", "DEQUEUE",
             // E (EN, ENCOLAR, ELIMINAR, ELIMINAR_FRENTE/INICIO/FINAL, ELIMINAR_POSICION, ELIMINARARISTA, ELIMINARNODO)
@@ -57,6 +56,8 @@ public class DSLCore {
             "LISTA_D", "LISTA_DO", "LISTA_DOB", "LISTA_DOBL", "LISTA_DOBLE", "LISTA_DOBLE_E", "LISTA_DOBLE_EN", "LISTA_DOBLE_ENL", "LISTA_DOBLE_ENLA", "LISTA_DOBLE_ENLAZ", "LISTA_DOBLE_ENLAZA", "LISTA_DOBLE_ENLAZAD", "LISTA_DOBLE_ENLAZADA",
             "LISTA_C", "LISTA_CI", "LISTA_CIR", "LISTA_CIRC", "LISTA_CIRCU", "LISTA_CIRCUL", "LISTA_CIRCULA", "LISTA_CIRCULAR",
             "LL", "LLE", "LLEN", "LLENA", "LLENAT",
+            // M (MOSTRAR)
+            "M", "MO", "MOS", "MOST", "MOSTR", "MOSTRA", "MOSTRAR",
             // N (NODOS)
             "N", "NO", "NOD", "NODO", "NODOS",
             // O (Esta sección se usaba para "INORDEN" antes, ya no es necesaria)
@@ -69,7 +70,7 @@ public class DSLCore {
             "T", "TO", "TOP", "TOPE", "TAM", "TAMA", "TAMAÑ", "TAMAÑO",
             "TAB", "TABL", "TABLA", "TABLAS", "TABLAS_", "TABLAS_H", "TABLAS_HA", "TABLAS_HAS", "TABLAS_HASH",
             // V (VECINOS, VACIA, VERFILA, VALOR)
-            "V", "VE", "VEC", "VECI", "VECIN", "VECINO", "VECINOS", 
+            "V", "VE", "VEC", "VECI", "VECIN", "VECINO", "VECINOS",
             "VA", "VAC", "VACI", "VACIA", "VACIAT",
             "VER", "VERF", "VERFI", "VERFIL", "VERFILA", "VAL", "VALO", "VALOR"
         );
@@ -92,8 +93,8 @@ public class DSLCore {
         
         // Transiciones iniciales (A, B, C, D, E, F, G, H, I, L, M, N, P, R, T, V)
         add.accept("INICIO", Map.ofEntries(
-            Map.entry('A', "A"), Map.entry('B', "B"), Map.entry('C', "C"), Map.entry('D', "D"), Map.entry('E', "E"), 
-            Map.entry('F', "F"), Map.entry('G', "G"), Map.entry('H', "H"), Map.entry('I', "I"), Map.entry('L', "L"), 
+            Map.entry('A', "A"), Map.entry('B', "B"), Map.entry('C', "C"), Map.entry('D', "D"), Map.entry('E', "E"),
+            Map.entry('F', "F"), Map.entry('G', "G"), Map.entry('H', "H"), Map.entry('I', "I"), Map.entry('L', "L"),
             Map.entry('M', "M"), Map.entry('N', "N"), Map.entry('P', "P"), Map.entry('R', "R"), Map.entry('T', "T"), Map.entry('V', "V")
         ));
         
@@ -235,7 +236,7 @@ public class DSLCore {
         add.accept("ELIMINAR_IN", Map.of('I', "ELIMINAR_INI"));
         add.accept("ELIMINAR_INI", Map.of('C', "ELIMINAR_INIC"));
         add.accept("ELIMINAR_INIC", Map.of('I', "ELIMINAR_INICI"));
-        add.accept("ELIMINAR_INICI", Map.of('O', "ELIMINAR_INICIO"));
+        add.accept("ELIMINAR_INIC", Map.of('O', "ELIMINAR_INICIO"));
         // ELIMINAR_POSICION
         add.accept("ELIMINAR_PO", Map.of('S', "ELIMINAR_POS"));
         add.accept("ELIMINAR_POS", Map.of('I', "ELIMINAR_POSI"));
@@ -290,7 +291,7 @@ public class DSLCore {
         add.accept("INSERTAR_IN", Map.of('I', "INSERTAR_INI"));
         add.accept("INSERTAR_INI", Map.of('C', "INSERTAR_INIC"));
         add.accept("INSERTAR_INIC", Map.of('I', "INSERTAR_INICI"));
-        add.accept("INSERTAR_INICI", Map.of('O', "INSERTAR_INICIO"));
+        add.accept("INSERTAR_INIC", Map.of('O', "INSERTAR_INICIO"));
         // INSERTAR_EN_POSICION (simplificado, ya que es largo)
         add.accept("INSERTAR_EN_POSICION", Map.of()); // Estado de aceptación
         // INORDEN
@@ -337,7 +338,7 @@ public class DSLCore {
         add.accept("LISTA_CI", Map.of('R', "LISTA_CIR"));
         add.accept("LISTA_CIR", Map.of('C', "LISTA_CIRC"));
         add.accept("LISTA_CIRC", Map.of('U', "LISTA_CIRCU"));
-        add.accept("LISTA_CIRCU", Map.of('L', "LISTA_CIRCUL"));
+        add.accept("LISTA_CIRC", Map.of('L', "LISTA_CIRCUL"));
         add.accept("LISTA_CIRCUL", Map.of('A', "LISTA_CIRCULA"));
         add.accept("LISTA_CIRCULA", Map.of('R', "LISTA_CIRCULAR"));
         // LLENA
@@ -347,7 +348,7 @@ public class DSLCore {
         add.accept("LLENA", Map.of('T', "LLENAT"));
 
 
-        // --- Transiciones para M --- (MOSTRAR solo, ya estaba en el archivo anterior)
+        // --- Transiciones para M --- (MOSTRAR)
         add.accept("M", Map.of('O', "MO"));
         add.accept("MO", Map.of('S', "MOS"));
         add.accept("MOS", Map.of('T', "MOST"));
@@ -373,7 +374,7 @@ public class DSLCore {
         add.accept("PILA_CI", Map.of('R', "PILA_CIR"));
         add.accept("PILA_CIR", Map.of('C', "PILA_CIRC"));
         add.accept("PILA_CIRC", Map.of('U', "PILA_CIRCU"));
-        add.accept("PILA_CIRCU", Map.of('L', "PILA_CIRCUL"));
+        add.accept("PILA_CIRC", Map.of('L', "PILA_CIRCUL"));
         add.accept("PILA_CIRCUL", Map.of('A', "PILA_CIRCULA"));
         add.accept("PILA_CIRCULA", Map.of('R', "PILA_CIRCULAR"));
         // POP
@@ -483,14 +484,17 @@ public class DSLCore {
             // Propiedades/Verificación
             "VACIAT", "LLENAT", "TAMAÑO", "ALTURA", "HOJAS", "NODOS",
             // Auxiliares
-            "EN", "CON", "VALOR"
+            "EN", "CON", "VALOR",
+            // Palabras Clave de Control
+            "IF", "ELSE", "MOSTRAR" // Añadidas para completar la lógica auxiliar
         );
     }
 
-    // --- Funciones de Tokenización ---
+    // --- Funciones de Tokenización (se mantienen) ---
     
     /**
      * Pre-tokeniza una línea separando lexemas por espacios y delimitadores.
+     * Esto actúa como el pre-procesador para el escaneo granular del AFD.
      */
     public static String[] tokenizarLinea(String entrada) {
         // 1. Manejo de comentarios (se eliminan hasta el final de la línea)
@@ -500,20 +504,20 @@ public class DSLCore {
         }
         
         // 2. Normalizar espacios
-        String tokenizada = entrada.trim().replaceAll("\\s+", " "); 
+        String tokenizada = entrada.trim().replaceAll("\\s+", " ");
 
         // 3. Separar operadores y delimitadores con espacios para aislarlos como tokens individuales.
-        // Caracteres separados: ( ) [ ] { } , ; = + - * / < > ! & |
-        tokenizada = tokenizada.replaceAll("([\\Q(){}[]|,;=+-*/<>\u0021&|\\E])", " $1 ");
+        // Caracteres separados: ( ) [ ] { } , ; = + - * / < > ! & | .
+        // El punto se añade para manejar sintaxis tipo objeto.
+        tokenizada = tokenizada.replaceAll("([\\Q(){}[]|,;=+-*/<>\u0021&|.\\E])", " $1 ");
 
         // 4. Normalizar espacios de nuevo (limpiar espacios dobles generados)
         tokenizada = tokenizada.trim().replaceAll("\\s+", " ");
 
-        // 5. Separar tokens finales 
+        // 5. Separar tokens finales y unirlos si son operadores compuestos.
         if (tokenizada.isEmpty()) return new String[0];
         String[] tokens = tokenizada.split(" ");
         
-        // 6. Unir tokens compuestos (ej: <=, >=, ==, !=, &&, ||)
         List<String> listaTokens = new ArrayList<>();
         for (int i = 0; i < tokens.length; i++) {
             String t = tokens[i];
@@ -576,7 +580,7 @@ public class DSLCore {
         // 2. Código de prueba con la sintaxis del DSL EXPANDIDA
         String codigo = """
             # Operaciones de Colas y Bicolas
-            ENCOLAR 5A EN COLA;
+            ENCOLA.R 5 EN COLA;
             INSERTAR_FRENTE 10 EN BICOLAS;
             VERFILA EN COLA;
 
@@ -588,19 +592,13 @@ public class DSLCore {
             # Operaciones de Listas
             INSERTAR_EN_POSICION 3 1 EN LISTA_ENLAZADAS;
             ELIMINAR_POSICION 5 EN LISTA_DOBLE_ENLAZADA;
-            RECORRERADELANTE EN LISTA_DOBLE_ENLAZADA;
             
-            # Operaciones de Árboles y Tablas Hash
+            # Operaciones de Arboles
             INSERTARIZQUIERDA 7 EN ARBOL_BINARIO;
-            RECORRIDOPORNIVELES EN ARBOL_BINARIO;
-            REHASH EN TABLAS_HASH;
-            CLAVE Categoria EN TABLAS_HASH;
-            
-            # Operaciones de Grafos
-            AGREGARNODO X EN GRAFOS;
-            CAMINOCORTO A B EN GRAFOS;
             
             # Ejemplo de error léxico
+            INSERTAZ 7 EN ARBOL_BINARIO; # INSERTA es válido, Z es error
+            234Inválido # Número y letra pegados -> Debería ser clasificado como ERROR
             SimboloInválido $ & | @
             """;
 
@@ -613,7 +611,7 @@ public class DSLCore {
         }
 
         // 4. Fase 2: Análisis y Clasificación Léxica (Uso del AFD)
-        Token tablaSimbolos[] = afd.aceptar(tokens);
+        Token[] tablaSimbolos = afd.aceptar(tokens);
         
         System.out.println("\n=== Fase 2: Tabla de Símbolos (Clasificación Léxica) ===");
         System.out.println("Lexema\t\t\tLínea\tTipoToken\t\tEstado Final\tReconocido");
@@ -633,7 +631,7 @@ public class DSLCore {
             }
         }
         
-        System.out.println("\nResumen: " + tablaSimbolos.length + " tokens procesados. " + 
+        System.out.println("\nResumen: " + tablaSimbolos.length + " tokens procesados. " +
                            erroresEncontrados + " errores léxicos.");
     }
 }
