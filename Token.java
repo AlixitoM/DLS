@@ -1,5 +1,4 @@
 
-package Proyecto;
 
 /**
  * Clase que representa un token léxico clasificado.*/
@@ -50,5 +49,5 @@ public class Token {
     public boolean existeSimbolo() {
         return existeSimbolo;
     }
-
+}
  

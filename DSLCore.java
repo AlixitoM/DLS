@@ -1,4 +1,3 @@
-package Proyecto;
 import java.util.*;
 import java.util.function.BiConsumer;
 
@@ -7,8 +6,8 @@ import java.util.function.BiConsumer;
  * tokeniza el código y realiza la clasificación léxica.
  * Los estados y transiciones del AFD ahora se generan dinámicamente.
  */
-public class DSLCORE {
-    
+public class DSLCore {
+
     // --- 1. Definición de Palabras Reservadas Finales ---
 
     // Conjunto de estados de aceptación (Palabras Reservadas completas). 
@@ -28,7 +27,7 @@ public class DSLCORE {
             // Auxiliares
             "EN", "CON", "VALOR",
             // Palabras Clave de Control
-            "IF", "ELSE", "MOSTRAR"
+             "MOSTRAR"
         );
     }
 
