@@ -120,16 +120,12 @@ public class AFD {
             String lexemaUpper = lexema.toUpperCase();
             int linea = tk.getLinea();
             
-            // --- 1. CLASIFICACIÓN AUXILIAR RÁPIDA (Números, Cadenas, Operadores/Delimitadores) ---
+            // --- 1. CLASIFICACIÓN AUXILIAR RÁPIDA (Operadores/Delimitadores, Números, Cadenas) ---
             
             String tipoAuxiliar = determinarTipoLexema(lexema);
 
             // Si es un tipo clasificado por la lógica auxiliar, lo añadimos y pasamos al siguiente token.
-            if (tipoAuxiliar.equals("LITERAL_NUMERICA") || tipoAuxiliar.equals("LITERAL_CADENA")) {
-                resultados.add(new Token(lexema, linea, tipoAuxiliar, "N/A", true));
-                continue;
-            }
-            if (!tipoAuxiliar.equals("ERROR_LEXICO") && !tipoAuxiliar.equals("IDENTIFICADOR")) {
+            if (!tipoAuxiliar.startsWith("ERROR") && !tipoAuxiliar.equals("IDENTIFICADOR")) {
                 resultados.add(new Token(lexema, linea, tipoAuxiliar, "N/A", true));
                 continue;
             }
@@ -164,12 +160,12 @@ public class AFD {
             
             // --- 3. CLASIFICACIÓN FINAL Y RECUPERACIÓN ---
 
-            // Recalcular el tipo auxiliar (Identificador o Error Léxico)
             String tipoFinalAuxiliar = determinarTipoLexema(lexema);
             String tipoFinal = TIPO_POR_PR.getOrDefault(lexemaUpper, tipoFinalAuxiliar);
 
             String estadoReporte = "N/A";
-            
+            boolean reconocido = true;
+
             if (esPR && estadosAceptacion.contains(estadoActual)) {
                 // Caso 1: Lexema consumido completamente y aceptado por el AFD.
                 estadoReporte = estadoActual;
@@ -196,24 +192,23 @@ public class AFD {
                 resultados.add(new Token(lexemaValido, linea, tipoPR, ultimoEstadoAceptado, true));
                 
                 // 2. Clasificar la parte restante como ERROR LÉXICO
-                resultados.add(new Token(lexemaRestante, linea, "ERROR_LEXICO", "N/A", false));
+                String tipoError = determinarTipoLexema(lexemaRestante);
+                resultados.add(new Token(lexemaRestante, linea, tipoError, "N/A", false));
                 
-                continue; // Continúa con el siguiente token en la lista original
+                continue; 
                 
             } else {
-                // Caso 4: Error Léxico simple (ej. '$', '234Inválido')
-                resultados.add(new Token(lexema, linea, tipoFinal, "N/A", false));
+                // Caso 4: Error Léxico simple (ej. '$', '234Inválido', 'ERROR_CADENA_INCOMPLETA')
+                tipoFinal = tipoFinalAuxiliar;
+                reconocido = false;
                 
-                continue; // Continúa con el siguiente token en la lista original
+                // Si fue un error simple, lo añadimos y continuamos.
+                resultados.add(new Token(lexema, linea, tipoFinal, "N/A", reconocido));
+                continue; 
             }
 
-            // Añadir el token final clasificado (solo si no fue manejado por el Caso 3/4)
-            // Solo añadimos el token si fue aceptado o corregido, y no si fue un error simple
-            if (tipoFinal.equals("PALABRA_RESERVADA") || tipoFinal.equals("PC_IF") || tipoFinal.equals("PC_ELSE") || tipoFinal.equals("IDENTIFICADOR")) {
-                 resultados.add(new Token(lexema, linea, tipoFinal, estadoReporte, true));
-            } else if (tipoFinal.equals("ERROR_LEXICO")) {
-                 resultados.add(new Token(lexema, linea, tipoFinal, estadoReporte, false));
-            }
+            // Añadir el token final clasificado (solo para Casos 1 y 2)
+            resultados.add(new Token(lexema, linea, tipoFinal, estadoReporte, reconocido));
         }
 
         return resultados.toArray(new Token[0]);
@@ -336,6 +331,7 @@ public class AFD {
 
     /**
      * Clasifica un lexema que no fue reconocido como Palabra Reservada.
+     * Añade la distinción entre los distintos tipos de ERROR_LEXICO.
      */
     public static String determinarTipoLexema(String lexema) {
         // 1. Delimitadores y Símbolos Simples y Compuestos (Switch)
@@ -381,7 +377,20 @@ public class AFD {
             return "IDENTIFICADOR";
         }
         
-        // 5. Error
-        return "ERROR_LEXICO";
+        // --- MANEJO DE ERRORES ESPECÍFICOS ---
+        
+        // ERROR A: Cadena incompleta
+        // Si el lexema comienza con " pero falló la validación completa (es decir, no terminó en Q2)
+        if (lexema.startsWith("\"") && !esLiteralCadena(lexema)) {
+            return "ERROR_CADENA_INCOMPLETA";
+        }
+        
+        // ERROR B: Símbolo inválido (token de longitud 1 que no fue reconocido en el switch)
+        if (lexema.length() == 1) {
+            return "ERROR_SIMBOLO_INVALIDO";
+        }
+
+        // ERROR C: Token malformado (ej. 234Inválido, secuencia inválida larga)
+        return "ERROR_TOKEN_MALFORMADO";
     }
 }
