@@ -94,9 +94,9 @@ public class DSLCore {
     
     // --- 3. Funciones de Tokenización (Pre-procesamiento) ---
     
-    /**
-     * Pre-tokeniza una línea separando lexemas por espacios y delimitadores.
-     */
+
+     // Pre-tokeniza una línea separando lexemas por espacios y delimitadores.
+
     public static String[] tokenizarLinea(String entrada) {
         // Manejo de comentarios
         int indiceComentario = entrada.indexOf("//");
@@ -173,7 +173,7 @@ public class DSLCore {
             VERFILA EN COLA;
 
             # Operaciones de Pilas
-            APILAR 20 EN PILA_CIRCULAR;
+            APILAR 20 EN PILA_CIRCULAR22;
             TAMAÑO EN PILA;
             if (PILA.VACIAT) { MOSTRAR "Pila vacía"; }
             
