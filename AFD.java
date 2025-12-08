@@ -126,7 +126,7 @@ public class AFD {
 
             // Si es un tipo clasificado por la lógica auxiliar, lo añadimos y pasamos al siguiente token.
             if (!tipoAuxiliar.startsWith("ERROR") && !tipoAuxiliar.equals("IDENTIFICADOR")) {
-                resultados.add(new Token(lexema, linea, tipoAuxiliar, "N/A", true));
+                resultados.add(new Token(lexema, linea, tk.getColumna(),tipoAuxiliar, "N/A", true));
                 continue;
             }
             
@@ -189,11 +189,11 @@ public class AFD {
                 
                 // 1. Clasificar la parte válida (la subcadena más larga)
                 String tipoPR = TIPO_POR_PR.getOrDefault(lexemaValido.toUpperCase(), "IDENTIFICADOR");
-                resultados.add(new Token(lexemaValido, linea, tipoPR, ultimoEstadoAceptado, true));
+                resultados.add(new Token(lexemaValido, linea,tk.getColumna(), tipoPR, ultimoEstadoAceptado, true));
                 
                 // 2. Clasificar la parte restante como ERROR LÉXICO
                 String tipoError = determinarTipoLexema(lexemaRestante);
-                resultados.add(new Token(lexemaRestante, linea, tipoError, "N/A", false));
+                resultados.add(new Token(lexemaRestante, linea, tk.getColumna(),tipoError, "N/A", false));
                 
                 continue; 
                 
@@ -203,12 +203,12 @@ public class AFD {
                 reconocido = false;
                 
                 // Si fue un error simple, lo añadimos y continuamos.
-                resultados.add(new Token(lexema, linea, tipoFinal, "N/A", reconocido));
+                resultados.add(new Token(lexema, linea,tk.getColumna(), tipoFinal, "N/A", reconocido));
                 continue; 
             }
 
             // Añadir el token final clasificado (solo para Casos 1 y 2)
-            resultados.add(new Token(lexema, linea, tipoFinal, estadoReporte, reconocido));
+            resultados.add(new Token(lexema, linea,tk.getColumna(), tipoFinal, estadoReporte, reconocido));
         }
 
         return resultados.toArray(new Token[0]);

@@ -1,5 +1,4 @@
 import java.util.*;
-import java.util.function.BiConsumer;
 
 /**
  * Clase principal que inicializa el AFD para el DSL de Estructuras de Datos,
@@ -11,7 +10,6 @@ public class DSLCore {
     // --- 1. Definición de Palabras Reservadas Finales ---
 
     // Conjunto de estados de aceptación (Palabras Reservadas completas). 
-    // Esta es la ÚNICA lista manual necesaria.
     private static Set<String> getEstadosAceptacionDSL() {
         return Set.of(
             // Estructuras
@@ -27,7 +25,7 @@ public class DSLCore {
             // Auxiliares
             "EN", "CON", "VALOR",
             // Palabras Clave de Control
-             "MOSTRAR"
+             "MOSTRAR", "IF", "ELSE"
         );
     }
 
@@ -35,21 +33,14 @@ public class DSLCore {
 
     // Genera todos los estados intermedios a partir de las palabras reservadas finales.
     private static Set<String> getEstadosDSL() {
-        //Creamos una lista vacia en la cual se almacenarn los posibles estados
         Set<String> todosLosEstados = new HashSet<>();
-        // se agrega el estado inicio
         todosLosEstados.add("INICIO");
         
-        // Se usan los estados de aceptacion en orden inversa para obtener 
-        //sus palabras reservadas
-        for (String pr : getEstadosAceptacionDSL()) { //por cada elemento del arreglo que retorna estados de aceptacion
-          // ciclamos la lista
+        for (String pr : getEstadosAceptacionDSL()) {
             for (int i = 1; i <= pr.length(); i++) {
-            // y  creamos un estado con la cadena menos la ultima letra y el destino es el estado actual
                 todosLosEstados.add(pr.substring(0, i));
             }
         }
-       // ahora ya tenemos todos los estados 
         return todosLosEstados;
     }
 
@@ -57,27 +48,17 @@ public class DSLCore {
     private static Map<String, Map<Character, String>> getTransicionesDSL() {
         Map<String, Map<Character, String>> transiciones = new HashMap<>();
         
-        // 1. a los estados les agrega un hash map que sera el encargado de definir las transiciones
         for (String estado : getEstadosDSL()) {
             transiciones.put(estado, new HashMap<>());
         }
         
-        // 2. Generar transiciones a partir de las palabras reservadas finales
-       // por cada estado de aceptacion
         for (String pr : getEstadosAceptacionDSL()) {
-            //String estadoOrigen = "INICIO";
-            // recorre desde 0 hasta su tamaño
             for (int i = 0; i < pr.length(); i++) {
-                // variable simbolo
                 char simbolo = pr.charAt(i);
-               // esta letra ira a una posicion mas de su resultado
                 String estadoDestino = pr.substring(0, i + 1);
-                
-               // se valida que no sea el primer estado
                 String origen = (i == 0) ? "INICIO" : pr.substring(0, i);
 
-                transiciones.get(origen)
-                            .put(simbolo, estadoDestino); // define la transicion al estado de destino 
+                transiciones.get(origen).put(simbolo, estadoDestino); 
             }
         }
         return transiciones;
@@ -94,9 +75,10 @@ public class DSLCore {
     
     // --- 3. Funciones de Tokenización (Pre-procesamiento) ---
     
-
-     // Pre-tokeniza una línea separando lexemas por espacios y delimitadores.
-
+    /**
+     * Pre-tokeniza una línea separando lexemas por espacios y delimitadores.
+     * CORREGIDO: Maneja correctamente operadores compuestos (==, !=, etc.)
+     */
     public static String[] tokenizarLinea(String entrada) {
         // Manejo de comentarios
         int indiceComentario = entrada.indexOf("//");
@@ -104,52 +86,60 @@ public class DSLCore {
             entrada = entrada.substring(0, indiceComentario);
         }
         
-        // Normalizar espacios
+        // Normalizar espacios iniciales
         String tokenizada = entrada.trim().replaceAll("\\s+", " ");
 
-        // Separar operadores y delimitadores
-        tokenizada = tokenizada.replaceAll("([\\Q(){}[]|,;=+-*/<>\u0021&|.\\E])", " $1 ");
+        // Separar operadores. 
+        // IMPORTANTE: Ponemos primero los operadores compuestos (ej. ==) para que tengan prioridad
+        // y no se dividan en dos caracteres separados.
+        // El regex dice: "Busca uno de estos grupos O busca uno de estos caracteres individuales"
+        tokenizada = tokenizada.replaceAll("(==|!=|<=|>=|&&|\\|\\||[\\Q(){}[]|,;=+-*/<>\u0021&|.\\E])", " $1 ");
 
-        // Normalizar espacios y limpiar
+        // Limpiar espacios dobles generados por el reemplazo anterior
         tokenizada = tokenizada.trim().replaceAll("\\s+", " ");
 
         if (tokenizada.isEmpty()) return new String[0];
-        String[] tokens = tokenizada.split(" ");
         
-        List<String> listaTokens = new ArrayList<>();
-        for (int i = 0; i < tokens.length; i++) {
-            String t = tokens[i];
-            
-         
-            listaTokens.add(t);
-        }
-        return listaTokens.toArray(new String[0]);
+        // Retornar arreglo limpio
+        return tokenizada.split(" ");
     }
 
     /**
      * Itera sobre todas las líneas del código fuente para generar tokens iniciales.
      */
-    
-   
     public static Token[] tokenizador(String entrada) {
-        // Hace un arreglo de tipo string con las lineas, separandolas por cada salto de linea
-        String[] lineas = entrada.split("\n");
-   
-        // Crea un listatokens
-        List<Token> listaTokens = new ArrayList<>();
-        int numLinea = 1;
-        //Recorre todas las linea 
-        for (String linea : lineas) {
-            String[] toks = tokenizarLinea(linea);
-            for (String t : toks) {
-                if (!t.trim().isEmpty()) {
-                    listaTokens.add(new Token(t, numLinea));
-                }
+    String[] lineas = entrada.split("\n");
+    java.util.List<Token> listaTokens = new java.util.ArrayList<>();
+    int numLinea = 1;
+
+    for (String lineaOriginal : lineas) {
+        String[] toks = tokenizarLinea(lineaOriginal);
+        int indiceBusqueda = 0; 
+        
+        for (String t : toks) {
+            if (!t.trim().isEmpty()) {
+                // Busca la columna real
+                int columna = lineaOriginal.indexOf(t, indiceBusqueda) + 1; 
+                indiceBusqueda = columna + t.length() - 1; 
+
+                // Crea el token con la columna
+                listaTokens.add(new Token(t, numLinea, columna));
             }
-            numLinea++;
         }
-        return listaTokens.toArray(new Token[0]);
+        numLinea++;
     }
+    return listaTokens.toArray(new Token[0]);
+}
+
+    public static AFD obtenerInstanciaAFD() {
+    return new AFD(
+        getEstadosDSL(),
+        getAlfabetoDSL(),
+        getTransicionesDSL(),
+        "INICIO",
+        getEstadosAceptacionDSL()
+    );
+}
     
     
     // --- 4. FUNCIÓN MAIN DE PRUEBA ---
@@ -165,49 +155,46 @@ public class DSLCore {
             getEstadosAceptacionDSL()
         );
 
-        // 2. Código de prueba con la sintaxis del DSL EXPANDIDA
+        // 2. Código de prueba con casos normales y casos de borde (Identificadores largos, errores, etc.)
         String codigo = """
-            # Operaciones de Colas y Bicolas
-            ENCOLA.R 5 EN COLA;
+            // Operaciones de Colas y Bicolas
+            ENCOLAR 5 EN COLA;
             INSERTAR_FRENTE 10 EN BICOLAS;
             VERFILA EN COLA;
 
-            # Operaciones de Pilas
-            APILAR 20 EN PILA_CIRCULAR22;
-            TAMAÑO EN PILA;
-            if (PILA.VACIAT) { MOSTRAR "Pila vacía"; }
+            // Identificadores que parecen Palabras Reservadas (Prueba de robustez)
+            INSERTARDATOS = 50;  
+            ENCOLARDATOS;
+
+            // Operaciones de Pilas y Control de flujo con operadores compuestos
+            APILAR 20 EN PILA_CIRCULAR;
+            if (PILA.TAMAÑO == 0) { MOSTRAR "Pila vacía"; }
+            if (A != B) { MOSTRAR "Diferente"; }
             
-            # Operaciones de Listas
-            INSERTAR_EN_POSICION 3 1 EN LISTA_ENLAZADAS;
-            ELIMINAR_POSICION 5 EN LISTA_DOBLE_ENLAZADA;
-            
-            # Operaciones de Arboles
-            INSERTARIZQUIERDA 7 EN ARBOL_BINARIO;
-            
-            # Ejemplo de error léxico
+            // Ejemplo de error léxico
             INSERTAZ 7 EN ARBOL_BINARIO; # INSERTA es válido, Z es error
-            234Inválido # Mezcla inválida
-            SimboloInválido $ & | @
+            234Inválido 
+            $ SimboloInválido
             """;
 
-        // 3. Fase 1: Tokenización (Separación de lexemas y asignación de línea)
+        // 3. Fase 1: Tokenización
         Token[] tokens = tokenizador(codigo);
 
         System.out.println("=== Fase 1: Lexemas separados ===");
         for (Token tk : tokens) {
-            System.out.println(tk.getLexema() + " (Línea: " + tk.getLinea() + ")");
+            System.out.println("Lexema: [" + tk.getLexema() + "] Línea: " + tk.getLinea());
         }
 
-        // 4. Fase 2: Análisis y Clasificación Léxica (Uso del AFD)
+        // 4. Fase 2: Análisis y Clasificación Léxica
         Token[] tablaSimbolos = afd.aceptar(tokens);
         
         System.out.println("\n=== Fase 2: Tabla de Símbolos (Clasificación Léxica) ===");
-        System.out.println("Lexema\t\t\tLínea\tTipoToken\t\tEstado Final\tReconocido");
-        System.out.println("--------------------\t-----\t------------------\t------------\t----------");
+        System.out.printf("%-20s %-5s %-25s %-15s %-10s\n", "Lexema", "Lin", "TipoToken", "EstadoFin", "Reconocido");
+        System.out.println("--------------------------------------------------------------------------------------");
         
         int erroresEncontrados = 0;
         for (Token tk : tablaSimbolos) {
-            System.out.printf("%-20s\t%-5d\t%-18s\t%-12s\t%-10s\n",
+            System.out.printf("%-20s %-5d %-25s %-15s %-10s\n",
                 tk.getLexema(),
                 tk.getLinea(),
                 tk.getTipoToken(),
