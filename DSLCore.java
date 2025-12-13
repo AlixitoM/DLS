@@ -1,6 +1,5 @@
 import java.util.*;
 
-
 /**
  * Clase principal que inicializa el AFD para el DSL de Estructuras de Datos,
  * tokeniza el código y realiza la clasificación léxica.
@@ -114,7 +113,8 @@ public static Token[] tokenizador(String entrada) {
     List<Token> listaTokens = new ArrayList<>();
     
     String regex = 
-        "(//.*)|" +                                        
+        "(//.*)|" +                       
+        "(\"[^\"]*\")|" +                 
         "(==|!=|<=|>=|&&|\\|\\|)|" +      
         "([a-zA-Z_][a-zA-Z0-9_]*)|" +     
         "(\\d+)|" +                       

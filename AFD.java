@@ -360,14 +360,23 @@ public class AFD {
             return "LITERAL_NUMERICA";
         }
         
+        // 3. Literales de Cadena - Implementado con AFD simulado
+        if (esLiteralCadena(lexema)) {
+            return "LITERAL_CADENA";
+        }
+
         // 4. Identificador - Implementado con AFD simulado
         if (esIdentificador(lexema)) {
             return "IDENTIFICADOR";
         }
         
         // --- MANEJO DE ERRORES ESPECÍFICOS ---
- 
-
+        
+        // ERROR A: Cadena incompleta
+        // Si el lexema comienza con " pero falló la validación completa (es decir, no terminó en Q2)
+        if (lexema.startsWith("\"") && !esLiteralCadena(lexema)) {
+            return "ERROR_CADENA_INCOMPLETA";
+        }
         
         // ERROR B: Símbolo inválido (token de longitud 1 que no fue reconocido en el switch)
         if (lexema.length() == 1) {
