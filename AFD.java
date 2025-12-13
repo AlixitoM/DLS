@@ -30,6 +30,7 @@ public class AFD {
         Map.entry("GRAFOS", "PALABRA_RESERVADA"),
         
         // Acciones/Operaciones 
+        Map.entry("CREAR", "PALABRA_RESERVADA"),
         Map.entry("INSERTAR", "PALABRA_RESERVADA"),
         Map.entry("INSERTAR_FINAL", "PALABRA_RESERVADA"),
         Map.entry("INSERTAR_INICIO", "PALABRA_RESERVADA"),

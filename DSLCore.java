@@ -10,7 +10,7 @@ public class DSLCore {
     // --- 1. Definición de Palabras Reservadas Finales ---
 
     // Conjunto de estados de aceptación (Palabras Reservadas completas). 
-    private static Set<String> getEstadosAceptacionDSL() {
+    public static Set<String> getEstadosAceptacionDSL() {
         return Set.of(
             // Estructuras
             "PILA", "PILA_CIRCULAR", "COLA", "BICOLAS", "LISTA_ENLAZADAS", "LISTA_DOBLE_ENLAZADA", "LISTA_CIRCULAR", "ARBOL_BINARIO", "TABLAS_HASH", "GRAFOS",
@@ -23,7 +23,7 @@ public class DSLCore {
             // Propiedades/Verificación
             "VACIAT", "LLENAT", "TAMAÑO", "ALTURA", "HOJAS", "NODOS",
             // Auxiliares
-            "EN", "CON", "VALOR",
+            "EN", "CON", "VALOR","CREAR",
             // Palabras Clave de Control
              "MOSTRAR", "IF", "ELSE"
         );
