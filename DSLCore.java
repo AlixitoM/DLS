@@ -114,8 +114,7 @@ public static Token[] tokenizador(String entrada) {
     List<Token> listaTokens = new ArrayList<>();
     
     String regex = 
-        "(//.*)|" +                       
-        "(\"[^\"]*\")|" +                 
+        "(//.*)|" +                                        
         "(==|!=|<=|>=|&&|\\|\\|)|" +      
         "([a-zA-Z_][a-zA-Z0-9_]*)|" +     
         "(\\d+)|" +                       
