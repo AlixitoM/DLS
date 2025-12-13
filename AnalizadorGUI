@@ -1,0 +1,193 @@
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import javax.swing.text.*;
+import java.awt.*;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+public class AnalizadorGUI extends JFrame {
+
+    private JTextPane txtEntrada;
+    private StyledDocument doc;
+
+    private Style normal;
+    private Style reservada;
+    private Style numero;
+    private Style operador;
+    private Style error;
+
+    private JTable tablaSimbolos;
+    private JTable tablaErrores;
+    private DefaultTableModel modeloSimbolos;
+    private DefaultTableModel modeloErrores;
+    private JLabel lblResumen;
+
+    private Timer timerColoreo;
+    private boolean coloreando = false;
+
+    // 🔑 PALABRAS RESERVADAS (case-insensitive)
+    private static final Set<String> PALABRAS_RESERVADAS = Set.of(
+        "PILA","PILA_CIRCULAR","COLA","BICOLAS","LISTA_ENLAZADAS",
+        "LISTA_DOBLE_ENLAZADA","LISTA_CIRCULAR","ARBOL_BINARIO",
+        "TABLAS_HASH","GRAFO","INSERTAR","ENCOLAR","APILAR",
+        "ELIMINAR","BUSCAR","MOSTRAR","EN","CON","VALOR",
+        "BFS","DFS","TAMAÑO","ALTURA","NODOS"
+    );
+
+    public AnalizadorGUI() {
+        setSize(1000, 700);
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+        setLayout(new BorderLayout(10, 10));
+
+        txtEntrada = new JTextPane();
+        txtEntrada.setFont(new Font("Consolas", Font.PLAIN, 14));
+        txtEntrada.setText("INSERTAR 10 EN PILA;\nENCOLAR 5 EN COLA;");
+        doc = txtEntrada.getStyledDocument();
+
+        inicializarEstilos();
+
+        JScrollPane scrollCodigo = new JScrollPane(txtEntrada);
+        scrollCodigo.setBorder(BorderFactory.createTitledBorder(" Código Fuente "));
+
+        JButton btnAnalizar = new JButton("Analizar");
+        btnAnalizar.addActionListener(e -> ejecutarAnalisis());
+
+        JPanel panelCodigo = new JPanel(new BorderLayout());
+        panelCodigo.add(scrollCodigo, BorderLayout.CENTER);
+        panelCodigo.add(btnAnalizar, BorderLayout.EAST);
+
+        modeloSimbolos = new DefaultTableModel(
+            new String[]{"Lexema","Línea","Col","Tipo","Estado"}, 0);
+        tablaSimbolos = new JTable(modeloSimbolos);
+
+        modeloErrores = new DefaultTableModel(
+            new String[]{"Error"}, 0);
+        tablaErrores = new JTable(modeloErrores);
+        tablaErrores.setForeground(Color.RED);
+
+        JSplitPane split = new JSplitPane(
+            JSplitPane.VERTICAL_SPLIT,
+            new JScrollPane(tablaSimbolos),
+            new JScrollPane(tablaErrores)
+        );
+        split.setResizeWeight(0.7);
+
+        lblResumen = new JLabel(" Esperando análisis...");
+        lblResumen.setBorder(BorderFactory.createEmptyBorder(5,5,5,5));
+
+        add(panelCodigo, BorderLayout.NORTH);
+        add(split, BorderLayout.CENTER);
+        add(lblResumen, BorderLayout.SOUTH);
+
+        habilitarColoreadoTiempoReal();
+    }
+
+    private void inicializarEstilos() {
+        StyleContext sc = StyleContext.getDefaultStyleContext();
+
+        normal = sc.addStyle("normal", null);
+        StyleConstants.setForeground(normal, Color.BLACK);
+
+        reservada = sc.addStyle("reservada", null);
+        StyleConstants.setForeground(reservada, new Color(0, 0, 180));
+        StyleConstants.setBold(reservada, true);
+
+        numero = sc.addStyle("numero", null);
+        StyleConstants.setForeground(numero, new Color(150, 0, 150));
+
+        operador = sc.addStyle("operador", null);
+        StyleConstants.setForeground(operador, Color.DARK_GRAY);
+
+        error = sc.addStyle("error", null);
+        StyleConstants.setForeground(error, Color.RED);
+        StyleConstants.setUnderline(error, true);
+    }
+
+    // ⚡ COLOREADO RÁPIDO CON REGEX
+    private void colorearTexto() {
+        if (coloreando) return;
+        coloreando = true;
+
+        try {
+            String texto = txtEntrada.getText();
+            doc.setCharacterAttributes(0, texto.length(), normal, true);
+
+            Matcher m;
+
+            // NÚMEROS
+            m = Pattern.compile("\\b\\d+\\b").matcher(texto);
+            while (m.find())
+                doc.setCharacterAttributes(m.start(), m.end()-m.start(), numero, true);
+
+            // OPERADORES
+            m = Pattern.compile("[=+\\-*/<>;()]").matcher(texto);
+            while (m.find())
+                doc.setCharacterAttributes(m.start(), 1, operador, true);
+
+            // PALABRAS
+            m = Pattern.compile("\\b[A-Za-z_]+\\b").matcher(texto);
+            while (m.find()) {
+                String palabra = m.group().toUpperCase();
+                if (PALABRAS_RESERVADAS.contains(palabra)) {
+                    doc.setCharacterAttributes(m.start(), m.end()-m.start(), reservada, true);
+                }
+            }
+
+        } finally {
+            coloreando = false;
+        }
+    }
+
+    private void habilitarColoreadoTiempoReal() {
+        timerColoreo = new Timer(200, e -> colorearTexto());
+        timerColoreo.setRepeats(false);
+
+        txtEntrada.getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) { timerColoreo.restart(); }
+            public void removeUpdate(DocumentEvent e) { timerColoreo.restart(); }
+            public void changedUpdate(DocumentEvent e) {}
+        });
+    }
+
+    // 🔍 ANÁLISIS REAL CON TU DSLCore
+    private void ejecutarAnalisis() {
+        modeloSimbolos.setRowCount(0);
+        modeloErrores.setRowCount(0);
+
+        try {
+            Token[] tokens = DSLCore.tokenizador(txtEntrada.getText());
+            AFD afd = DSLCore.obtenerInstanciaAFD();
+            Token[] resultado = afd.aceptar(tokens);
+
+            int errores = 0;
+
+            for (Token t : resultado) {
+                if (!t.existeSimbolo()) {
+                    errores++;
+                    modeloErrores.addRow(new Object[]{
+                        "Error en línea " + t.getLinea() + ": " + t.getLexema()
+                    });
+                } else {
+                    modeloSimbolos.addRow(new Object[]{
+                        t.getLexema(), t.getLinea(), t.getColumna(),
+                        t.getTipoToken(), t.getEstadoFinal()
+                    });
+                }
+            }
+
+            lblResumen.setText("Errores encontrados: " + errores);
+            lblResumen.setForeground(errores > 0 ? Color.RED : new Color(0,120,0));
+
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage());
+        }
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> new AnalizadorGUI().setVisible(true));
+    }
+}
