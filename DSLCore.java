@@ -13,17 +13,17 @@ public class DSLCore {
     public static Set<String> getEstadosAceptacionDSL() {
         return Set.of(
             // Estructuras
-            "PILA", "PILA_CIRCULAR", "COLA", "BICOLAS", "LISTA_ENLAZADAS", "LISTA_DOBLE_ENLAZADA", "LISTA_CIRCULAR", "ARBOL_BINARIO", "TABLAS_HASH", "GRAFOS",
+            "PILA", "PILA_CIRCULAR", "COLA", "BICOLA", "LISTA_ENLAZADA", "LISTA_DOBLE_ENLAZADA", "LISTA_CIRCULAR", "ARBOL_BINARIO", "TABLAS_HASH", "GRAFO",
             // Acciones/Operaciones
             "INSERTAR", "INSERTAR_FINAL", "INSERTAR_INICIO", "INSERTAR_EN_POSICION", "INSERTARIZQUIERDA", "INSERTARDERECHA", "AGREGARNODO", "APILAR", "ENCOLAR", "PUSH", "ENQUEUE",
             "ELIMINAR", "ELIMINAR_INICIO", "ELIMINAR_FINAL", "ELIMINAR_FRENTE", "ELIMINAR_POSICION", "ELIMINARNODO", "DESAPILAR", "POP", "DESENCOLAR", "DEQUEUE",
-            "BUSCAR", "TOPE", "FRENTE", "PEEK", "VERFILA", "FRONT", "CLAVE",
+            "BUSCAR", "TOPE", "FRENTE", "PEEK", "VERFILA", "FRONT", "CLAVE", "CREAR",
             "RECORRER", "RECORRERADELANTE", "RECORRERATRAS", "PREORDEN", "INORDEN", "POSTORDEN", "RECORRIDOPORNIVELES",
             "ACTUALIZAR", "REHASH", "AGREGARARISTA", "ELIMINARARISTA", "VECINOS", "BFS", "DFS", "CAMINOCORTO",
             // Propiedades/Verificación
-            "VACIAT", "LLENAT", "TAMAÑO", "ALTURA", "HOJAS", "NODOS",
+            "VACIAT", "LLENAT", "TAMANO", "ALTURA", "HOJAS", "NODOS",
             // Auxiliares
-            "EN", "CON", "VALOR","CREAR",
+            "EN", "CON", "VALOR",
             // Palabras Clave de Control
              "MOSTRAR", "IF", "ELSE"
         );

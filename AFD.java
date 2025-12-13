@@ -21,13 +21,13 @@ public class AFD {
         Map.entry("PILA", "PALABRA_RESERVADA"),
         Map.entry("PILA_CIRCULAR", "PALABRA_RESERVADA"),
         Map.entry("COLA", "PALABRA_RESERVADA"),
-        Map.entry("BICOLAS", "PALABRA_RESERVADA"),
-        Map.entry("LISTA_ENLAZADAS", "PALABRA_RESERVADA"),
+        Map.entry("BICOLA", "PALABRA_RESERVADA"),
+        Map.entry("LISTA_ENLAZADA", "PALABRA_RESERVADA"),
         Map.entry("LISTA_DOBLE_ENLAZADA", "PALABRA_RESERVADA"),
         Map.entry("LISTA_CIRCULAR", "PALABRA_RESERVADA"),
         Map.entry("ARBOL_BINARIO", "PALABRA_RESERVADA"),
         Map.entry("TABLAS_HASH", "PALABRA_RESERVADA"),
-        Map.entry("GRAFOS", "PALABRA_RESERVADA"),
+        Map.entry("GRAFO", "PALABRA_RESERVADA"),
         
         // Acciones/Operaciones 
         Map.entry("CREAR", "PALABRA_RESERVADA"),
@@ -82,7 +82,7 @@ public class AFD {
         // Propiedades/Verificación
         Map.entry("VACIAT", "PALABRA_RESERVADA"),
         Map.entry("LLENAT", "PALABRA_RESERVADA"),
-        Map.entry("TAMAÑO", "PALABRA_RESERVADA"),
+        Map.entry("TAMANO", "PALABRA_RESERVADA"),
         Map.entry("ALTURA", "PALABRA_RESERVADA"),
         Map.entry("HOJAS", "PALABRA_RESERVADA"),
         Map.entry("NODOS", "PALABRA_RESERVADA"),
