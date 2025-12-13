@@ -1,5 +1,6 @@
 import java.util.*;
 
+
 /**
  * Clase principal que inicializa el AFD para el DSL de Estructuras de Datos,
  * tokeniza el código y realiza la clasificación léxica.
@@ -107,30 +108,47 @@ public class DSLCore {
     /**
      * Itera sobre todas las líneas del código fuente para generar tokens iniciales.
      */
-    public static Token[] tokenizador(String entrada) {
+    // Sustituye en DSLCore.java
+
+public static Token[] tokenizador(String entrada) {
+    List<Token> listaTokens = new ArrayList<>();
+    
+    String regex = 
+        "(//.*)|" +                       
+        "(\"[^\"]*\")|" +                 
+        "(==|!=|<=|>=|&&|\\|\\|)|" +      
+        "([a-zA-Z_][a-zA-Z0-9_]*)|" +     
+        "(\\d+)|" +                       
+        "([\\Q(){}[]|,;=+-*/<>\u0021&|.\\E])|" + 
+        "(\\S+)";                         
+
+    java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(regex);
+    
     String[] lineas = entrada.split("\n");
-    java.util.List<Token> listaTokens = new java.util.ArrayList<>();
     int numLinea = 1;
 
     for (String lineaOriginal : lineas) {
-        String[] toks = tokenizarLinea(lineaOriginal);
-        int indiceBusqueda = 0; 
+        java.util.regex.Matcher matcher = pattern.matcher(lineaOriginal);
         
-        for (String t : toks) {
-            if (!t.trim().isEmpty()) {
-                // Busca la columna real
-                int columna = lineaOriginal.indexOf(t, indiceBusqueda) + 1; 
-                indiceBusqueda = columna + t.length() - 1; 
+        while (matcher.find()) {
+            String token = matcher.group();
+            
+            // Si es comentario (Grupo 1), ignoramos el resto de la línea o el match
+            if (matcher.group(1) != null) continue;
+            
+            // Si es espacio vacío (a veces matcher captura vacíos si el regex no es perfecto), ignorar
+            if (token.trim().isEmpty()) continue;
 
-                // Crea el token con la columna
-                listaTokens.add(new Token(t, numLinea, columna));
-            }
+            // Calcular columna real usando start() del matcher
+            // Sumamos 1 porque las columnas suelen ser base-1
+            int columna = matcher.start() + 1; 
+
+            listaTokens.add(new Token(token, numLinea, columna));
         }
         numLinea++;
     }
     return listaTokens.toArray(new Token[0]);
 }
-
     public static AFD obtenerInstanciaAFD() {
     return new AFD(
         getEstadosDSL(),

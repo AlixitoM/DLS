@@ -221,43 +221,36 @@ public class AFD {
     /**
      * Implementa un AFD simulado para reconocer números enteros con signo (^([+-]?)\d+$).
      */
-    private static boolean esEnteroConSigno(String lexema) {
+    private static boolean esEntero(String lexema) {
         if (lexema == null || lexema.isEmpty()) return false;
         
-        // Q0: Inicial, Q1: Después de signo, Q2: Aceptación (después de dígito)
+        // Q0: Estado Inicial
+        // Q1: Estado de Aceptación (hemos leído al menos un dígito)
         String estadoActual = "Q0";
         
         for (char c : lexema.toCharArray()) {
             switch (estadoActual) {
                 case "Q0":
-                    if (c == '+' || c == '-') {
-                        estadoActual = "Q1";
-                    } else if (Character.isDigit(c)) {
-                        estadoActual = "Q2";
+                    if (Character.isDigit(c)) {
+                        estadoActual = "Q1"; // Transición al estado de aceptación
                     } else {
-                        return false; 
+                        return false; // No es un dígito
                     }
                     break;
                     
                 case "Q1":
                     if (Character.isDigit(c)) {
-                        estadoActual = "Q2";
+                        // Permanece en Q1 (sigue leyendo dígitos)
+                        estadoActual = "Q1"; 
                     } else {
-                        return false; 
+                        return false; // Carácter inválido (letra o símbolo en medio del número)
                     }
-                    break;
-                    
-                case "Q2":
-                    if (!Character.isDigit(c)) {
-                        return false; 
-                    }
-                    // Si es dígito, permanece en Q2
                     break;
             }
         }
         
-        // Solo es aceptado si terminó en el estado de aceptación (Q2)
-        return estadoActual.equals("Q2");
+        // Solo aceptamos si terminamos en Q1 (al menos un dígito leído)
+        return estadoActual.equals("Q1");
     }
 
     /**
@@ -363,7 +356,7 @@ public class AFD {
         }
 
         // 2. Literales Numéricos (SOLO ENTEROS) - Implementado con AFD simulado
-        if (esEnteroConSigno(lexema)) {
+        if (esEntero(lexema)) {
             return "LITERAL_NUMERICA";
         }
         
