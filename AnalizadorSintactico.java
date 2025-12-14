@@ -46,12 +46,12 @@ public class AnalizadorSintactico {
     public List<String> getLogDerivacion() { return logDerivacion; }
     public List<String> getErrores() { return errores; }
 
-    // --- MÉTODO NUEVO PARA DAR FORMATO DE ÁRBOL ---
+    // --- MÉTODO PARA DAR FORMATO DE ÁRBOL ---
     private void log(String mensaje) {
         StringBuilder sb = new StringBuilder();
         // Agrega 2 espacios por cada nivel de profundidad
         for (int i = 0; i < nivel; i++) {
-            sb.append("|  "); // Usamos "| " para que se vea como ramas
+            sb.append("|  "); 
         }
         sb.append(mensaje);
         logDerivacion.add(sb.toString());
