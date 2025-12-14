@@ -26,7 +26,7 @@ public class AnalizadorSintactico {
         try {
             programa();
         } catch (Exception e) {
-            errores.add("Error irrecuperable: " + e.getMessage());
+            errores.add("DSL(999) Error irrecuperable: " + e.getMessage());
         }
         logDerivacion.add("Fin del Análisis.");
     }
@@ -34,37 +34,24 @@ public class AnalizadorSintactico {
     public List<String> getLogDerivacion() { return logDerivacion; }
     public List<String> getErrores() { return errores; }
 
-    // =========================================================================
-    // ======================== CORRECCIÓN CLAVE AQUÍ ==========================
-    // =========================================================================
-
     // <Programa>
     private void programa() {
         while (!esFin()) {
-            // FIX DEL CONGELAMIENTO:
-            // Si encontramos una llave de cierre '}' en el nivel principal (programa),
-            // significa que hubo un error dentro de un bloque y la recuperación nos dejó aquí.
-            // Debemos consumirla para evitar el bucle infinito.
             if (check("}")) {
-                // Opcional: Reportar que sobró una llave si quieres ser estricto, 
-                // pero para recuperación suave, solo la saltamos.
-                // errores.add("Se encontró una llave '}' inesperada (posible error de cierre previo).");
                 avanzar(); 
                 continue; 
             }
-
             try {
                 sentencia();
             } catch (ParserException e) {
-                // MODO PÁNICO
-                errores.add(e.getMessage());
+                errores.add(e.getMessage()); // El mensaje ya trae el código DSL(id)
                 sincronizar();
             }
         }
     }
 
     private void sentencia() {
-        if (esFin()) return; // Protección extra
+        if (esFin()) return; 
 
         String lexema = tokenActual().getLexema().toUpperCase();
 
@@ -87,18 +74,18 @@ public class AnalizadorSintactico {
             consumir(";"); 
         }
         else {
-            throw error("Se esperaba sentencia (CREAR, IF, INSERTAR...), se encontró: '" + lexema + "'");
+            throw error("Se esperaba sentencia (CREAR, IF, INSERTAR...), se encontró: '" + lexema + "'", 203);
         }
     }
 
-    // --- MÉTODOS DE REGLAS (Igual que antes, con pequeñas protecciones) ---
+    // --- MÉTODOS DE REGLAS ---
 
     private void declaracion() {
         logDerivacion.add("<Sentencia> -> Declaración");
         consumir("CREAR");
         
         if (!esTipoEstructura(tokenActual().getLexema().toUpperCase())) {
-            throw error("Tipo de estructura desconocido: " + tokenActual().getLexema());
+            throw error("Tipo de estructura desconocido: " + tokenActual().getLexema(), 204);
         }
         consumir(tokenActual().getLexema()); 
         consumir("IDENTIFICADOR");
@@ -115,11 +102,8 @@ public class AnalizadorSintactico {
         String verbo = tokenActual().getLexema().toUpperCase();
         consumir(verbo); 
 
-        // Lógica para detectar errores como "ELIMINAR miPila" (Falta EN)
-        // Verificamos si el siguiente token es 'EN' antes de intentar consumirlo ciegamente
-        // para dar un mensaje de error más específico si falta.
-
         if (esVerboSinParametros(verbo)) {
+            if (!check("EN")) throw error("Falta la palabra reservada 'EN' después de " + verbo, 205);
             consumir("EN");
             consumir("IDENTIFICADOR");
         }
@@ -147,14 +131,13 @@ public class AnalizadorSintactico {
             consumir("IDENTIFICADOR");
         }
         else {
-            // Caso estándar: INSERTAR 5 EN pila
+            // Caso estándar
             if (!verbo.startsWith("ELIMINAR") && !verbo.startsWith("DES") && !verbo.startsWith("POP")) {
                 expresion(); 
             }
             
-            // Aquí es donde ocurría tu error. Si falta EN, lanzará error.
             if (!check("EN")) {
-                throw error("Falta la palabra reservada 'EN' después del valor/operación.");
+                throw error("Falta la palabra reservada 'EN' después del valor/operación.", 205);
             }
             consumir("EN");
             consumir("IDENTIFICADOR");
@@ -172,13 +155,10 @@ public class AnalizadorSintactico {
         consumir(")");
         consumir("{");
         
-        // Bloque del IF protegido
         while (!check("}") && !esFin()) {
             try {
                 sentencia();
             } catch (ParserException e) {
-                // Si falla una sentencia DENTRO del IF, sincronizamos localmente
-                // para intentar seguir leyendo el resto del bloque
                 errores.add(e.getMessage());
                 sincronizar();
             }
@@ -220,7 +200,7 @@ public class AnalizadorSintactico {
             consumir(tokenActual().getLexema());
             expresion();
         } else {
-            throw error("Se esperaba operador relacional (==, >, <), hallado: " + tokenActual().getLexema());
+            throw error("Se esperaba operador relacional (==, >, <), hallado: " + tokenActual().getLexema(), 206);
         }
     }
 
@@ -264,17 +244,17 @@ public class AnalizadorSintactico {
             consumir("LITERAL_CADENA");
         }
         else {
-            throw error("Expresión inválida. Se esperaba valor, ID o propiedad. Encontrado: " + lexema);
+            throw error("Expresión inválida. Se esperaba valor, ID o propiedad. Encontrado: " + lexema, 207);
         }
     }
 
     // =========================================================================
-    // ======================== MÉTODOS AUXILIARES =============================
+    // ======================== MÉTODOS AUXILIARES ACTUALIZADOS ================
     // =========================================================================
 
     private void consumir(String expected) {
         if (esFin()) {
-            throw error("Final inesperado. Se esperaba: " + expected);
+            throw error("Final inesperado. Se esperaba: " + expected, 299);
         }
 
         Token t = tokenActual();
@@ -288,7 +268,16 @@ public class AnalizadorSintactico {
         if (match) {
             avanzar();
         } else {
-            throw error("Se esperaba '" + expected + "', se encontró '" + t.getLexema() + "'");
+            // AUTODETECCIÓN DE CÓDIGO DE ERROR SEGÚN LO QUE FALTÓ
+            int codigoError = 203; // Genérico
+            
+            if (expected.equals(";")) codigoError = 201;      // Falta punto y coma
+            else if (expected.equals("}")) codigoError = 202; // Falta cierre de bloque
+            else if (expected.equals(")")) codigoError = 202; // Falta paréntesis
+            else if (expected.equals("EN")) codigoError = 205;// Falta palabra reservada EN
+            else if (expected.equals("IDENTIFICADOR")) codigoError = 208; // Falta ID
+
+            throw error("Se esperaba '" + expected + "', se encontró '" + t.getLexema() + "'", codigoError);
         }
     }
 
@@ -319,40 +308,25 @@ public class AnalizadorSintactico {
         return actual >= tokens.length;
     }
 
-    private ParserException error(String mensaje) {
+    // MÉTODO ERROR SOBRECARGADO PARA INCLUIR CÓDIGO DSL(id)
+    private ParserException error(String mensaje, int codigo) {
         int linea = esFin() ? tokens[tokens.length-1].getLinea() : tokenActual().getLinea();
-        return new ParserException("Error Sintáctico [Línea " + linea + "]: " + mensaje);
+        // Formato: "DSL(201) [Línea 5]: Mensaje..."
+        return new ParserException("DSL(" + codigo + ") [Línea " + linea + "]: " + mensaje);
     }
 
-    // --- ALGORITMO DE RECUPERACIÓN MEJORADO ---
     private void sincronizar() {
         logDerivacion.add("   >> RECUPERANDO... (Buscando ';' o cierre de bloque)");
-        
-        // Proteccion contra loops: Si entramos a sincronizar y YA estamos en un punto de sincronización,
-        // forzamos avanzar uno para no quedarnos atascados infinitamente en el mismo token.
-        if (check(";") || check("}")) {
-            avanzar();
-        }
-
+        if (check(";") || check("}")) avanzar();
         while (!esFin()) {
             String lexema = tokenActual().getLexema();
+            if (lexema.equals(";")) { avanzar(); return; }
+            if (lexema.equals("}")) { return; }
             
-            // Puntos de sincronización seguros
-            if (lexema.equals(";")) {
-                avanzar(); 
-                return;
-            }
-            if (lexema.equals("}")) {
-                // No consumimos la llave aquí, dejamos que la maneje el bloque superior (if o programa)
-                return; 
-            }
-            
-            // Heurística: Si vemos el inicio de otra sentencia clara, paramos
             String lexUpper = lexema.toUpperCase();
             if (Set.of("CREAR", "IF", "MOSTRAR", "INSERTAR", "APILAR", "ELIMINAR", "WHILE").contains(lexUpper)) {
                 return;
             }
-
             avanzar();
         }
     }

@@ -84,10 +84,22 @@ public class AnalizadorGUI extends JFrame {
         scrollCodigo.setPreferredSize(new Dimension(1000, 200));
         
         JButton btnAnalizar = new JButton("Compilar (Analizar)");
-        btnAnalizar.setBackground(new Color(0, 120, 215)); 
-        btnAnalizar.setForeground(Color.WHITE);
         btnAnalizar.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        btnAnalizar.setFocusPainted(false);
+        btnAnalizar.setForeground(Color.WHITE);
+        btnAnalizar.setBackground(new Color(0, 120, 215)); // Azul Windows
+        btnAnalizar.setFocusPainted(false);      // Quita el recuadro de foco feo
+        btnAnalizar.setBorderPainted(false);     // Quita el borde 3D antiguo
+        btnAnalizar.setCursor(new Cursor(Cursor.HAND_CURSOR)); // Pone la manita al pasar el mouse
+        btnAnalizar.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+
+        btnAnalizar.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent evt) {
+                btnAnalizar.setBackground(new Color(0, 90, 170)); // Color más oscuro
+            }
+            public void mouseExited(java.awt.event.MouseEvent evt) {
+                btnAnalizar.setBackground(new Color(0, 120, 215)); // Color original
+            }
+        });
         
         panelCodigo.add(scrollCodigo, BorderLayout.CENTER);
         panelCodigo.add(btnAnalizar, BorderLayout.EAST);
@@ -294,8 +306,16 @@ public class AnalizadorGUI extends JFrame {
             for (Token t : resultadosLexicos) {
                 // Si el token es un error léxico
                 if (t.getTipoToken().startsWith("ERROR") || !t.existeSimbolo()) {
-                    String desc = String.format("Lexema '%s' no válido. Causa: %s", 
-                                                t.getLexema(), t.getTipoToken());
+                    
+                    // --- ASIGNACIÓN DE CÓDIGOS DE ERROR LÉXICO ---
+                    String codigoError = "DSL(100)"; // Genérico
+                    if (t.getTipoToken().contains("CADENA")) codigoError = "DSL(102)"; // Cadena incompleta
+                    else if (t.getTipoToken().contains("SIMBOLO")) codigoError = "DSL(101)"; // Símbolo raro
+                    else if (t.getTipoToken().contains("MALFORMADO")) codigoError = "DSL(103)";
+                    
+                    String desc = String.format("%s Lexema '%s' no válido. Causa: %s", 
+                                                codigoError, t.getLexema(), t.getTipoToken());
+                    
                     listaErroresUnificada.add(new ErrorReporte(t.getLinea(), "LÉXICO", desc));
                 } else {
                     // Token válido, lo añadimos para el parser
@@ -307,34 +327,31 @@ public class AnalizadorGUI extends JFrame {
             }
 
             // --- FASE 2: ANÁLISIS SINTÁCTICO ---
-            // Solo ejecutamos si hay tokens, aunque haya errores léxicos previos, 
-            // intentamos parsear lo que sea válido.
             if (!tokensValidos.isEmpty()) {
                 Token[] arrayTokensValidos = tokensValidos.toArray(new Token[0]);
                 
-                // Instanciamos el Analizador Sintáctico nuevo
                 AnalizadorSintactico sintactico = new AnalizadorSintactico(arrayTokensValidos);
                 sintactico.analizar(); 
 
-                // A. Mostrar el árbol de derivación (Pasos del análisis)
+                // A. Mostrar el árbol de derivación
                 List<String> log = sintactico.getLogDerivacion();
                 StringBuilder sb = new StringBuilder();
                 for (String paso : log) {
                     sb.append(paso).append("\n");
                 }
                 txtSintactico.setText(sb.toString());
-                txtSintactico.setCaretPosition(0); // Scroll al inicio
+                txtSintactico.setCaretPosition(0); 
 
-                // B. Procesar Errores Sintácticos con el formato limpio solicitado
+                // B. Procesar Errores Sintácticos (Que ya traen el ID desde el Parser)
                 List<String> erroresSin = sintactico.getErrores();
                 for (String errStr : erroresSin) {
                     int linea = 0;
                     String descripcion = errStr;
 
-                    // Parsear string formato: "Error Sintáctico [Línea 5]: Mensaje..."
+                    // Parsear string formato: "DSL(201) [Línea 5]: Mensaje..."
                     try {
                         if (errStr.contains("[Línea ")) {
-                            int inicioNum = errStr.indexOf("[Línea ") + 7; // Longitud de "[Línea "
+                            int inicioNum = errStr.indexOf("[Línea ") + 7;
                             int finNum = errStr.indexOf("]");
                             
                             if (inicioNum < finNum) {
@@ -342,13 +359,15 @@ public class AnalizadorGUI extends JFrame {
                                 linea = Integer.parseInt(numStr.trim());
                             }
                             
-                            // Extraer solo la descripción (lo que sigue después de ": ")
-                            if (errStr.contains(": ")) {
-                                descripcion = errStr.substring(errStr.indexOf(": ") + 2);
+                            // Limpiar descripción para la tabla (quitar la parte de [Línea X])
+                            // Pero mantenemos el DSL(id)
+                            if (errStr.contains("]: ")) {
+                                String idPart = errStr.substring(0, errStr.indexOf("[")); // "DSL(201) "
+                                String msgPart = errStr.substring(errStr.indexOf("]: ") + 3); // "Mensaje"
+                                descripcion = idPart + msgPart;
                             }
                         }
                     } catch (Exception ex) {
-                        // Si falla el parseo del string, linea = 0 y mensaje completo
                         linea = 0; 
                     }
                     
@@ -363,9 +382,9 @@ public class AnalizadorGUI extends JFrame {
 
             for (ErrorReporte err : listaErroresUnificada) {
                 modeloErrores.addRow(new Object[]{
-                    (err.linea > 0 ? err.linea : "-"), // Si linea es 0 o -1 poner guion
+                    (err.linea > 0 ? err.linea : "-"), 
                     err.tipo, 
-                    err.descripcion
+                    err.descripcion // Ahora contiene DSL(id)
                 });
             }
 
@@ -373,7 +392,7 @@ public class AnalizadorGUI extends JFrame {
             int totalErrores = listaErroresUnificada.size();
             if (totalErrores == 0) {
                 lblResumen.setText(" ✓ Análisis Finalizado con ÉXITO. El código es correcto.");
-                lblResumen.setForeground(new Color(0, 128, 0)); // Verde fuerte
+                lblResumen.setForeground(new Color(0, 128, 0)); 
             } else {
                 lblResumen.setText(" ⚠ Se encontraron " + totalErrores + " errores.");
                 lblResumen.setForeground(Color.RED);
