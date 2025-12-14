@@ -8,7 +8,6 @@ public class AnalizadorSintactico {
     private List<String> logDerivacion; 
     private List<String> errores;
     
-    // VARIABLE NUEVA PARA EL ÁRBOL
     private int nivel = 0; 
 
     // --- CONJUNTOS DE VALIDACIÓN ---
@@ -40,16 +39,14 @@ public class AnalizadorSintactico {
         this.actual = 0;
         this.logDerivacion = new ArrayList<>();
         this.errores = new ArrayList<>();
-        this.nivel = 0; // Reiniciar nivel
+        this.nivel = 0; 
     }
 
     public List<String> getLogDerivacion() { return logDerivacion; }
     public List<String> getErrores() { return errores; }
 
-    // --- MÉTODO PARA DAR FORMATO DE ÁRBOL ---
     private void log(String mensaje) {
         StringBuilder sb = new StringBuilder();
-        // Agrega 2 espacios por cada nivel de profundidad
         for (int i = 0; i < nivel; i++) {
             sb.append("|  "); 
         }
@@ -80,10 +77,13 @@ public class AnalizadorSintactico {
         return tokens[actual];
     }
 
+    // --- CAMBIO PRINCIPAL 1: Match insensible a mayúsculas ---
     private boolean match(String lexemaOTipo) {
         Token t = tokenActual();
-        if (t.getLexema().equals(lexemaOTipo) || t.getTipoToken().equals(lexemaOTipo)) {
-            log("-> Match: " + t.getLexema()); // Usa el log con indentación
+        // Usamos equalsIgnoreCase para el lexema (ej: "en" == "EN")
+        // Pero mantenemos equals para el TipoToken (ej: "IDENTIFICADOR")
+        if (t.getLexema().equalsIgnoreCase(lexemaOTipo) || t.getTipoToken().equals(lexemaOTipo)) {
+            log("-> Match: " + t.getLexema()); 
             actual++;
             return true;
         }
@@ -102,12 +102,12 @@ public class AnalizadorSintactico {
         }
     }
 
-    // --- REGLAS GRAMATICALES (Con control de nivel) ---
+    // --- REGLAS GRAMATICALES ---
 
     // <PROGRAMA>
     private void programa() {
-        log("<PROGRAMA>"); // Imprime el nombre del nodo
-        nivel++;           // Baja un nivel en el árbol
+        log("<PROGRAMA>"); 
+        nivel++;          
         
         while (!tokenActual().getTipoToken().equals("EOF") && 
                !tokenActual().getTipoToken().equals("LLAVE_DER")) {
@@ -119,7 +119,7 @@ public class AnalizadorSintactico {
             }
         }
         
-        nivel--; // Sube un nivel al terminar la regla
+        nivel--; 
     }
 
     // <SENTENCIA>
@@ -130,31 +130,35 @@ public class AnalizadorSintactico {
             return;
         }
 
-        log("<SENTENCIA>"); // Nodo
-        nivel++;            // Entra
+        log("<SENTENCIA>"); 
+        nivel++;            
 
-        if (t.getLexema().equals("CREAR")) {
+        // --- CAMBIO PRINCIPAL 2: .toUpperCase() antes de buscar en los Sets ---
+        // Esto asegura que si el token es "apilar", al convertirlo a "APILAR" lo encuentre en el Set.
+        String lexemaUpper = t.getLexema().toUpperCase();
+
+        if (lexemaUpper.equals("CREAR")) {
             declaracion();
-        } else if (t.getTipoToken().equals("PC_IF")) {
+        } else if (t.getTipoToken().equals("PC_IF") || lexemaUpper.equals("IF")) {
             bloqueIf();
-        } else if (t.getLexema().equals("MOSTRAR")) {
+        } else if (lexemaUpper.equals("MOSTRAR")) {
             sentenciaMostrar();
-        } else if (VERBOS_DOS_VALORES.contains(t.getLexema())) {
+        } else if (VERBOS_DOS_VALORES.contains(lexemaUpper)) {
             operacionDosValores(); 
-        } else if (VERBOS_CON_VALOR.contains(t.getLexema())) {
+        } else if (VERBOS_CON_VALOR.contains(lexemaUpper)) {
             operacionUnValor();    
-        } else if (VERBOS_SIN_VALOR.contains(t.getLexema()) || 
+        } else if (VERBOS_SIN_VALOR.contains(lexemaUpper) || 
                    t.getTipoToken().equals("PALABRA_RESERVADA")) {
             operacionSimple();     
         } else if (t.getTipoToken().equals("LLAVE_DER") || t.getTipoToken().equals("PC_ELSE")) {
-            nivel--; // Importante bajar nivel si hacemos return temprano
+            nivel--; 
             return; 
         } else {
             registrarError("Sentencia no reconocida: " + t.getLexema());
             actual++; 
         }
         
-        nivel--; // Sale
+        nivel--; 
     }
 
     // <DECLARACION>
@@ -165,8 +169,12 @@ public class AnalizadorSintactico {
 
             match("CREAR"); 
             Token tokenTipo = tokenActual();
-            if (tokenTipo.getTipoToken().equals("PALABRA_RESERVADA")) {
-                match("PALABRA_RESERVADA");
+            // Validamos contra el Set de Estructuras si fuera necesario, o confiamos en el tipo
+            if (tokenTipo.getTipoToken().equals("PALABRA_RESERVADA") || 
+                tokenTipo.getTipoToken().equals("ESTRUCTURA")) { // Ajuste por si usas otro tipo
+                // Avanzamos, no importa si match usa equalsIgnoreCase, funcionará
+                actual++; 
+                log("-> Tipo estructura: " + tokenTipo.getLexema());
             } else {
                 throw new Exception("Tipo desconocido: " + tokenTipo.getLexema());
             }
@@ -177,13 +185,13 @@ public class AnalizadorSintactico {
                 match("LITERAL_NUMERICA");
             } 
 
-            if (!match("DELIMITADOR")) throw new Exception("Falta ';'");
+            if (!match("DELIMITADOR") && !match(";")) throw new Exception("Falta ';'");
 
         } catch (Exception e) {
             registrarError(e.getMessage());
             sincronizar();
         } finally {
-            nivel--; // Aseguramos que siempre regrese el nivel
+            nivel--; 
         }
     }
 
@@ -192,22 +200,25 @@ public class AnalizadorSintactico {
         log("<IF>");
         nivel++;
         
-        match("PC_IF");
-        if (!match("PARENTESIS_IZQ")) registrarError("Falta '('");
-        condicion();
-        if (!match("PARENTESIS_DER")) registrarError("Falta ')'");
+        // Match acepta "if", "IF", "If" gracias al cambio en match()
+        if(!match("PC_IF")) match("IF"); 
         
-        if (!match("LLAVE_IZQ")) registrarError("Falta '{'");
-        programa(); // El programa maneja sus propios niveles
-        if (!match("LLAVE_DER")) registrarError("Falta '}'");
+        if (!match("PARENTESIS_IZQ") && !match("(")) registrarError("Falta '('");
+        condicion();
+        if (!match("PARENTESIS_DER") && !match(")")) registrarError("Falta ')'");
+        
+        if (!match("LLAVE_IZQ") && !match("{")) registrarError("Falta '{'");
+        programa(); 
+        if (!match("LLAVE_DER") && !match("}")) registrarError("Falta '}'");
 
-        if (tokenActual().getTipoToken().equals("PC_ELSE")) {
+        Token t = tokenActual();
+        if (t.getTipoToken().equals("PC_ELSE") || t.getLexema().equalsIgnoreCase("ELSE")) {
             log("<ELSE>");
             nivel++;
-            match("PC_ELSE");
-            if (!match("LLAVE_IZQ")) registrarError("Falta '{'");
+            match("ELSE"); // Funcionará con "else"
+            if (!match("LLAVE_IZQ") && !match("{")) registrarError("Falta '{'");
             programa();
-            if (!match("LLAVE_DER")) registrarError("Falta '}'");
+            if (!match("LLAVE_DER") && !match("}")) registrarError("Falta '}'");
             nivel--;
         }
         
@@ -231,11 +242,12 @@ public class AnalizadorSintactico {
     private void operacionUnValor() {
         log("<OP_UN_VALOR>");
         nivel++;
+        // match avanzará aunque sea "apilar" porque lo encuentra por equalsIgnoreCase o por TipoToken
         match(tokenActual().getTipoToken()); 
         valor();
         if (!match("EN")) registrarError("Se esperaba 'EN'");
         destino();
-        if (!match("DELIMITADOR")) registrarError("Falta ';'");
+        if (!match("DELIMITADOR") && !match(";")) registrarError("Falta ';'");
         nivel--;
     }
 
@@ -249,7 +261,7 @@ public class AnalizadorSintactico {
         valor(); 
         if (!match("EN")) registrarError("Se esperaba 'EN'");
         destino();
-        if (!match("DELIMITADOR")) registrarError("Falta ';'");
+        if (!match("DELIMITADOR") && !match(";")) registrarError("Falta ';'");
         nivel--;
     }
 
@@ -260,7 +272,7 @@ public class AnalizadorSintactico {
         match(tokenActual().getTipoToken()); 
         if (!match("EN")) registrarError("Se esperaba 'EN'");
         destino();
-        if (!match("DELIMITADOR")) registrarError("Falta ';'");
+        if (!match("DELIMITADOR") && !match(";")) registrarError("Falta ';'");
         nivel--;
     }
 
@@ -270,7 +282,7 @@ public class AnalizadorSintactico {
         nivel++;
         match("MOSTRAR");
         valor();
-        if (!match("DELIMITADOR")) registrarError("Falta ';'");
+        if (!match("DELIMITADOR") && !match(";")) registrarError("Falta ';'");
         nivel--;
     }
 
@@ -278,9 +290,12 @@ public class AnalizadorSintactico {
     private void destino() {
         Token t = tokenActual();
         if (t.getTipoToken().equals("IDENTIFICADOR") || t.getTipoToken().equals("PALABRA_RESERVADA")) {
-            match(t.getTipoToken()); 
+            // Avanzamos manualmente para evitar conflictos de match
+            log("-> Destino: " + t.getLexema());
+            actual++;
         } else {
-            registrarError("Destino inválido");
+            registrarError("Destino inválido: " + t.getLexema());
+            actual++; // Forzar avance para no ciclar
         }
     }
 
@@ -289,16 +304,23 @@ public class AnalizadorSintactico {
         log("<VALOR>");
         nivel++;
         Token t = tokenActual();
+        
+        // --- CAMBIO: toUpperCase para buscar propiedades ---
+        String lexemaUpper = t.getLexema().toUpperCase();
+
         if (t.getTipoToken().equals("LITERAL_NUMERICA") || t.getTipoToken().equals("NUMERO")) {
             match(t.getTipoToken());
         } else if (t.getTipoToken().equals("IDENTIFICADOR")) {
             match("IDENTIFICADOR");
         } else if (t.getTipoToken().equals("LITERAL_CADENA") || t.getTipoToken().equals("CADENA")) {
             match(t.getTipoToken()); 
-        } else if (PROPIEDADES.contains(t.getLexema())) {
+        } else if (PROPIEDADES.contains(lexemaUpper)) {
             log("<PROPIEDAD>");
             nivel++;
-            match(t.getTipoToken()); 
+            // Como ya sabemos que está en el Set, avanzamos
+            actual++;
+            log("-> Propiedad: " + t.getLexema());
+
             if (!match("EN")) registrarError("Falta 'EN'");
             destino();
             nivel--;
