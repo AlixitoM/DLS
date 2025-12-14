@@ -3,348 +3,392 @@ import java.util.List;
 import java.util.Set;
 
 public class AnalizadorSintactico {
-    private Token[] tokens;
+    private final Token[] tokens;
     private int actual;
-    private List<String> logDerivacion; 
-    private List<String> errores;
-    
-    private int nivel = 0; 
+    private final List<String> logDerivacion; 
+    private final List<String> errores;       
 
-    // --- CONJUNTOS DE VALIDACIÓN ---
-    private static final Set<String> VERBOS_CON_VALOR = Set.of(
-        "INSERTAR", "APILAR", "ENCOLAR", "PUSH", "ENQUEUE", "AGREGARNODO", 
-        "INSERTAR_INICIO", "INSERTAR_FINAL", "BUSCAR", "CLAVE", 
-        "INSERTARIZQUIERDA", "INSERTARDERECHA", "BFS", "DFS"
-    );
-    
-    private static final Set<String> VERBOS_DOS_VALORES = Set.of(
-        "AGREGARARISTA", "CAMINOCORTO", "ACTUALIZAR", "INSERTAR_EN_POSICION"
-    );
-
-    private static final Set<String> VERBOS_SIN_VALOR = Set.of(
-        "ELIMINAR", "ELIMINAR_INICIO", "ELIMINAR_FINAL", "ELIMINAR_FRENTE", 
-        "ELIMINARNODO", "DESAPILAR", "POP", "DESENCOLAR", "DEQUEUE", 
-        "RECORRER", "RECORRERADELANTE", "RECORRERATRAS", 
-        "PREORDEN", "INORDEN", "POSTORDEN", "RECORRIDOPORNIVELES",
-        "REHASH", "ELIMINARARISTA"
-    );
-
-    private static final Set<String> PROPIEDADES = Set.of(
-         "TAMANO", "VACIAT", "LLENAT", "TOPE", "FRENTE", 
-        "ALTURA", "NODOS", "HOJAS", "PEEK", "FRONT", "VERFILA", "VECINOS"
-    );
+    private static class ParserException extends RuntimeException {
+        public ParserException(String message) {
+            super(message);
+        }
+    }
 
     public AnalizadorSintactico(Token[] tokens) {
         this.tokens = tokens;
         this.actual = 0;
         this.logDerivacion = new ArrayList<>();
         this.errores = new ArrayList<>();
-        this.nivel = 0; 
+    }
+
+    public void analizar() {
+        logDerivacion.add("Inicio del Análisis Sintáctico...");
+        try {
+            programa();
+        } catch (Exception e) {
+            errores.add("Error irrecuperable: " + e.getMessage());
+        }
+        logDerivacion.add("Fin del Análisis.");
     }
 
     public List<String> getLogDerivacion() { return logDerivacion; }
     public List<String> getErrores() { return errores; }
 
-    private void log(String mensaje) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < nivel; i++) {
-            sb.append("|  "); 
+    // =========================================================================
+    // ======================== CORRECCIÓN CLAVE AQUÍ ==========================
+    // =========================================================================
+
+    // <Programa>
+    private void programa() {
+        while (!esFin()) {
+            // FIX DEL CONGELAMIENTO:
+            // Si encontramos una llave de cierre '}' en el nivel principal (programa),
+            // significa que hubo un error dentro de un bloque y la recuperación nos dejó aquí.
+            // Debemos consumirla para evitar el bucle infinito.
+            if (check("}")) {
+                // Opcional: Reportar que sobró una llave si quieres ser estricto, 
+                // pero para recuperación suave, solo la saltamos.
+                // errores.add("Se encontró una llave '}' inesperada (posible error de cierre previo).");
+                avanzar(); 
+                continue; 
+            }
+
+            try {
+                sentencia();
+            } catch (ParserException e) {
+                // MODO PÁNICO
+                errores.add(e.getMessage());
+                sincronizar();
+            }
         }
-        sb.append(mensaje);
-        logDerivacion.add(sb.toString());
     }
 
-    public void analizar() {
-        log("INICIO DEL ANÁLISIS (Raíz)");
-        try {
-            programa();
-        } catch (Exception e) {
-            registrarError("Error fatal: " + e.getMessage());
+    private void sentencia() {
+        if (esFin()) return; // Protección extra
+
+        String lexema = tokenActual().getLexema().toUpperCase();
+
+        if (lexema.equals("CREAR")) {
+            declaracion();
+        } 
+        else if (esVerboOperacion(lexema)) {
+            operacionEstructura();
         }
+        else if (lexema.equals("IF")) {
+            controlFlujoIf();
+        }
+        else if (lexema.equals("MOSTRAR")) {
+            salida();
+        }
+        else if (tokenActual().getTipoToken().equals("IDENTIFICADOR")) {
+            asignacion();
+        }
+        else if (lexema.equals(";")) {
+            consumir(";"); 
+        }
+        else {
+            throw error("Se esperaba sentencia (CREAR, IF, INSERTAR...), se encontró: '" + lexema + "'");
+        }
+    }
+
+    // --- MÉTODOS DE REGLAS (Igual que antes, con pequeñas protecciones) ---
+
+    private void declaracion() {
+        logDerivacion.add("<Sentencia> -> Declaración");
+        consumir("CREAR");
         
-        if (errores.isEmpty()) {
-            log("FIN: Análisis exitoso.");
+        if (!esTipoEstructura(tokenActual().getLexema().toUpperCase())) {
+            throw error("Tipo de estructura desconocido: " + tokenActual().getLexema());
+        }
+        consumir(tokenActual().getLexema()); 
+        consumir("IDENTIFICADOR");
+        
+        if (tokenActual().getTipoToken().equals("LITERAL_NUMERICA")) {
+             consumir("LITERAL_NUMERICA");
+        }
+        consumir(";");
+        logDerivacion.add("   Declaración correcta.");
+    }
+
+    private void operacionEstructura() {
+        logDerivacion.add("<Sentencia> -> Operación de Estructura");
+        String verbo = tokenActual().getLexema().toUpperCase();
+        consumir(verbo); 
+
+        // Lógica para detectar errores como "ELIMINAR miPila" (Falta EN)
+        // Verificamos si el siguiente token es 'EN' antes de intentar consumirlo ciegamente
+        // para dar un mensaje de error más específico si falta.
+
+        if (esVerboSinParametros(verbo)) {
+            consumir("EN");
+            consumir("IDENTIFICADOR");
+        }
+        else if (verbo.equals("INSERTAR_EN_POSICION")) {
+            expresion(); 
+            consumir("EN");
+            consumir("IDENTIFICADOR");
+            consumir("CON");
+            consumir("VALOR");
+            expresion(); 
+        }
+        else if (verbo.equals("AGREGARARISTA") || verbo.equals("CAMINOCORTO")) {
+            expresion();
+            expresion();
+            consumir("EN");
+            consumir("IDENTIFICADOR");
+             if (check("CON") || check("PESO")) {
+                 avanzar();
+                 expresion();
+            }
+        }
+        else if (verbo.equals("ELIMINAR_POSICION")) {
+            expresion();
+            consumir("EN");
+            consumir("IDENTIFICADOR");
+        }
+        else {
+            // Caso estándar: INSERTAR 5 EN pila
+            if (!verbo.startsWith("ELIMINAR") && !verbo.startsWith("DES") && !verbo.startsWith("POP")) {
+                expresion(); 
+            }
+            
+            // Aquí es donde ocurría tu error. Si falta EN, lanzará error.
+            if (!check("EN")) {
+                throw error("Falta la palabra reservada 'EN' después del valor/operación.");
+            }
+            consumir("EN");
+            consumir("IDENTIFICADOR");
+        }
+
+        consumir(";");
+        logDerivacion.add("   Operación '" + verbo + "' válida.");
+    }
+
+    private void controlFlujoIf() {
+        logDerivacion.add("<Sentencia> -> Control IF");
+        consumir("IF");
+        consumir("(");
+        condicion();
+        consumir(")");
+        consumir("{");
+        
+        // Bloque del IF protegido
+        while (!check("}") && !esFin()) {
+            try {
+                sentencia();
+            } catch (ParserException e) {
+                // Si falla una sentencia DENTRO del IF, sincronizamos localmente
+                // para intentar seguir leyendo el resto del bloque
+                errores.add(e.getMessage());
+                sincronizar();
+            }
+        }
+        consumir("}");
+
+        if (match("ELSE")) {
+            consumir("{");
+            while (!check("}") && !esFin()) {
+                try {
+                    sentencia();
+                } catch (ParserException e) {
+                    errores.add(e.getMessage());
+                    sincronizar();
+                }
+            }
+            consumir("}");
+        }
+    }
+
+    private void salida() {
+        logDerivacion.add("<Sentencia> -> Salida");
+        consumir("MOSTRAR");
+        expresion();
+        consumir(";");
+    }
+
+    private void asignacion() {
+        logDerivacion.add("<Sentencia> -> Asignación");
+        consumir("IDENTIFICADOR");
+        consumir("="); 
+        expresion();
+        consumir(";");
+    }
+
+    private void condicion() {
+        expresion();
+        if (esOperadorRelacional(tokenActual().getLexema())) {
+            consumir(tokenActual().getLexema());
+            expresion();
         } else {
-            log("FIN: Análisis con " + errores.size() + " errores.");
+            throw error("Se esperaba operador relacional (==, >, <), hallado: " + tokenActual().getLexema());
         }
     }
 
-    // --- FUNCIONES DE APOYO ---
-    private Token tokenActual() {
-        if (actual >= tokens.length) {
-            return new Token("EOF", -1, -1, "EOF", "N/A", false); 
+    private void expresion() {
+        termino();
+        while (check("+") || check("-")) {
+            consumir(tokenActual().getLexema());
+            termino();
         }
-        return tokens[actual];
     }
 
-    // --- CAMBIO PRINCIPAL 1: Match insensible a mayúsculas ---
-    private boolean match(String lexemaOTipo) {
+    private void termino() {
+        factor();
+        while (check("*") || check("/")) {
+            consumir(tokenActual().getLexema());
+            factor();
+        }
+    }
+
+    private void factor() {
+        String lexema = tokenActual().getLexema().toUpperCase();
+        String tipo = tokenActual().getTipoToken();
+
+        if (esPropiedad(lexema)) {
+            consumir(lexema);
+            consumir("EN");
+            consumir("IDENTIFICADOR");
+        } 
+        else if (lexema.equals("(")) {
+            consumir("(");
+            expresion();
+            consumir(")");
+        }
+        else if (tipo.equals("IDENTIFICADOR")) {
+            consumir("IDENTIFICADOR");
+        }
+        else if (tipo.equals("LITERAL_NUMERICA")) {
+            consumir("LITERAL_NUMERICA");
+        }
+        else if (tipo.equals("LITERAL_CADENA")) {
+            consumir("LITERAL_CADENA");
+        }
+        else {
+            throw error("Expresión inválida. Se esperaba valor, ID o propiedad. Encontrado: " + lexema);
+        }
+    }
+
+    // =========================================================================
+    // ======================== MÉTODOS AUXILIARES =============================
+    // =========================================================================
+
+    private void consumir(String expected) {
+        if (esFin()) {
+            throw error("Final inesperado. Se esperaba: " + expected);
+        }
+
         Token t = tokenActual();
-        // Usamos equalsIgnoreCase para el lexema (ej: "en" == "EN")
-        // Pero mantenemos equals para el TipoToken (ej: "IDENTIFICADOR")
-        if (t.getLexema().equalsIgnoreCase(lexemaOTipo) || t.getTipoToken().equals(lexemaOTipo)) {
-            log("-> Match: " + t.getLexema()); 
-            actual++;
+        String lexema = t.getLexema().toUpperCase();
+        String tipo = t.getTipoToken();
+
+        boolean match = false;
+        if (lexema.equals(expected.toUpperCase())) match = true;
+        else if (tipo.equals(expected)) match = true;
+
+        if (match) {
+            avanzar();
+        } else {
+            throw error("Se esperaba '" + expected + "', se encontró '" + t.getLexema() + "'");
+        }
+    }
+
+    private boolean check(String expected) {
+        if (esFin()) return false;
+        Token t = tokenActual();
+        return t.getLexema().equalsIgnoreCase(expected) || t.getTipoToken().equals(expected);
+    }
+    
+    private boolean match(String expected) {
+        if (check(expected)) {
+            avanzar();
             return true;
         }
         return false;
     }
 
+    private Token tokenActual() {
+        if (actual >= tokens.length) return tokens[tokens.length - 1];
+        return tokens[actual];
+    }
+
+    private void avanzar() {
+        if (actual < tokens.length) actual++;
+    }
+
+    private boolean esFin() {
+        return actual >= tokens.length;
+    }
+
+    private ParserException error(String mensaje) {
+        int linea = esFin() ? tokens[tokens.length-1].getLinea() : tokenActual().getLinea();
+        return new ParserException("Error Sintáctico [Línea " + linea + "]: " + mensaje);
+    }
+
+    // --- ALGORITMO DE RECUPERACIÓN MEJORADO ---
     private void sincronizar() {
-        log("!!! RECUPERANDO ERROR (Panic Mode) !!!");
-        Token t = tokenActual();
-        while (!t.getTipoToken().equals("EOF") && !t.getLexema().equals(";")) {
-            actual++;
-            t = tokenActual();
-        }
-        if (t.getLexema().equals(";")) {
-            actual++;
-        }
-    }
-
-    // --- REGLAS GRAMATICALES ---
-
-    // <PROGRAMA>
-    private void programa() {
-        log("<PROGRAMA>"); 
-        nivel++;          
+        logDerivacion.add("   >> RECUPERANDO... (Buscando ';' o cierre de bloque)");
         
-        while (!tokenActual().getTipoToken().equals("EOF") && 
-               !tokenActual().getTipoToken().equals("LLAVE_DER")) {
-            try {
-                sentencia();
-            } catch (Exception e) {
-                registrarError("Error recuperable: " + e.getMessage());
-                panicMode(); 
-            }
-        }
-        
-        nivel--; 
-    }
-
-    // <SENTENCIA>
-    private void sentencia() {
-        Token t = tokenActual();
-        if (t.getLexema().equals(";")) {
-            actual++;
-            return;
+        // Proteccion contra loops: Si entramos a sincronizar y YA estamos en un punto de sincronización,
+        // forzamos avanzar uno para no quedarnos atascados infinitamente en el mismo token.
+        if (check(";") || check("}")) {
+            avanzar();
         }
 
-        log("<SENTENCIA>"); 
-        nivel++;            
-
-        // --- CAMBIO PRINCIPAL 2: .toUpperCase() antes de buscar en los Sets ---
-        // Esto asegura que si el token es "apilar", al convertirlo a "APILAR" lo encuentre en el Set.
-        String lexemaUpper = t.getLexema().toUpperCase();
-
-        if (lexemaUpper.equals("CREAR")) {
-            declaracion();
-        } else if (t.getTipoToken().equals("PC_IF") || lexemaUpper.equals("IF")) {
-            bloqueIf();
-        } else if (lexemaUpper.equals("MOSTRAR")) {
-            sentenciaMostrar();
-        } else if (VERBOS_DOS_VALORES.contains(lexemaUpper)) {
-            operacionDosValores(); 
-        } else if (VERBOS_CON_VALOR.contains(lexemaUpper)) {
-            operacionUnValor();    
-        } else if (VERBOS_SIN_VALOR.contains(lexemaUpper) || 
-                   t.getTipoToken().equals("PALABRA_RESERVADA")) {
-            operacionSimple();     
-        } else if (t.getTipoToken().equals("LLAVE_DER") || t.getTipoToken().equals("PC_ELSE")) {
-            nivel--; 
-            return; 
-        } else {
-            registrarError("Sentencia no reconocida: " + t.getLexema());
-            actual++; 
-        }
-        
-        nivel--; 
-    }
-
-    // <DECLARACION>
-    private void declaracion() {
-        try {
-            log("<DECLARACION>");
-            nivel++;
-
-            match("CREAR"); 
-            Token tokenTipo = tokenActual();
-            // Validamos contra el Set de Estructuras si fuera necesario, o confiamos en el tipo
-            if (tokenTipo.getTipoToken().equals("PALABRA_RESERVADA") || 
-                tokenTipo.getTipoToken().equals("ESTRUCTURA")) { // Ajuste por si usas otro tipo
-                // Avanzamos, no importa si match usa equalsIgnoreCase, funcionará
-                actual++; 
-                log("-> Tipo estructura: " + tokenTipo.getLexema());
-            } else {
-                throw new Exception("Tipo desconocido: " + tokenTipo.getLexema());
-            }
-
-            if (!match("IDENTIFICADOR")) throw new Exception("Se esperaba ID");
-
-            if (tokenActual().getTipoToken().equals("LITERAL_NUMERICA")) {
-                match("LITERAL_NUMERICA");
-            } 
-
-            if (!match("DELIMITADOR") && !match(";")) throw new Exception("Falta ';'");
-
-        } catch (Exception e) {
-            registrarError(e.getMessage());
-            sincronizar();
-        } finally {
-            nivel--; 
-        }
-    }
-
-    // <BLOQUE_IF>
-    private void bloqueIf() {
-        log("<IF>");
-        nivel++;
-        
-        // Match acepta "if", "IF", "If" gracias al cambio en match()
-        if(!match("PC_IF")) match("IF"); 
-        
-        if (!match("PARENTESIS_IZQ") && !match("(")) registrarError("Falta '('");
-        condicion();
-        if (!match("PARENTESIS_DER") && !match(")")) registrarError("Falta ')'");
-        
-        if (!match("LLAVE_IZQ") && !match("{")) registrarError("Falta '{'");
-        programa(); 
-        if (!match("LLAVE_DER") && !match("}")) registrarError("Falta '}'");
-
-        Token t = tokenActual();
-        if (t.getTipoToken().equals("PC_ELSE") || t.getLexema().equalsIgnoreCase("ELSE")) {
-            log("<ELSE>");
-            nivel++;
-            match("ELSE"); // Funcionará con "else"
-            if (!match("LLAVE_IZQ") && !match("{")) registrarError("Falta '{'");
-            programa();
-            if (!match("LLAVE_DER") && !match("}")) registrarError("Falta '}'");
-            nivel--;
-        }
-        
-        nivel--;
-    }
-
-    // <CONDICION>
-    private void condicion() {
-        log("<CONDICION>");
-        nivel++;
-        valor(); 
-        Token t = tokenActual();
-        if (t.getLexema().matches("==|!=|<|>|<=|>=")) {
-            match(t.getLexema()); 
-            valor();            
-        } 
-        nivel--;
-    }
-
-    // <OP_UN_VALOR>
-    private void operacionUnValor() {
-        log("<OP_UN_VALOR>");
-        nivel++;
-        // match avanzará aunque sea "apilar" porque lo encuentra por equalsIgnoreCase o por TipoToken
-        match(tokenActual().getTipoToken()); 
-        valor();
-        if (!match("EN")) registrarError("Se esperaba 'EN'");
-        destino();
-        if (!match("DELIMITADOR") && !match(";")) registrarError("Falta ';'");
-        nivel--;
-    }
-
-    // <OP_DOS_VALORES>
-    private void operacionDosValores() {
-        log("<OP_DOS_VALORES>");
-        nivel++;
-        match(tokenActual().getTipoToken()); 
-        valor(); 
-        if (!match("CON")) registrarError("Se esperaba 'CON'");
-        valor(); 
-        if (!match("EN")) registrarError("Se esperaba 'EN'");
-        destino();
-        if (!match("DELIMITADOR") && !match(";")) registrarError("Falta ';'");
-        nivel--;
-    }
-
-    // <OP_SIMPLE>
-    private void operacionSimple() {
-        log("<OP_SIMPLE>");
-        nivel++;
-        match(tokenActual().getTipoToken()); 
-        if (!match("EN")) registrarError("Se esperaba 'EN'");
-        destino();
-        if (!match("DELIMITADOR") && !match(";")) registrarError("Falta ';'");
-        nivel--;
-    }
-
-    // <MOSTRAR>
-    private void sentenciaMostrar() {
-        log("<MOSTRAR>");
-        nivel++;
-        match("MOSTRAR");
-        valor();
-        if (!match("DELIMITADOR") && !match(";")) registrarError("Falta ';'");
-        nivel--;
-    }
-
-    // <DESTINO>
-    private void destino() {
-        Token t = tokenActual();
-        if (t.getTipoToken().equals("IDENTIFICADOR") || t.getTipoToken().equals("PALABRA_RESERVADA")) {
-            // Avanzamos manualmente para evitar conflictos de match
-            log("-> Destino: " + t.getLexema());
-            actual++;
-        } else {
-            registrarError("Destino inválido: " + t.getLexema());
-            actual++; // Forzar avance para no ciclar
-        }
-    }
-
-    // <VALOR>
-    private void valor() {
-        log("<VALOR>");
-        nivel++;
-        Token t = tokenActual();
-        
-        // --- CAMBIO: toUpperCase para buscar propiedades ---
-        String lexemaUpper = t.getLexema().toUpperCase();
-
-        if (t.getTipoToken().equals("LITERAL_NUMERICA") || t.getTipoToken().equals("NUMERO")) {
-            match(t.getTipoToken());
-        } else if (t.getTipoToken().equals("IDENTIFICADOR")) {
-            match("IDENTIFICADOR");
-        } else if (t.getTipoToken().equals("LITERAL_CADENA") || t.getTipoToken().equals("CADENA")) {
-            match(t.getTipoToken()); 
-        } else if (PROPIEDADES.contains(lexemaUpper)) {
-            log("<PROPIEDAD>");
-            nivel++;
-            // Como ya sabemos que está en el Set, avanzamos
-            actual++;
-            log("-> Propiedad: " + t.getLexema());
-
-            if (!match("EN")) registrarError("Falta 'EN'");
-            destino();
-            nivel--;
-        } else {
-            registrarError("Valor inválido: " + t.getLexema());
-            actual++; 
-        }
-        nivel--;
-    }
-
-    private void registrarError(String msg) {
-        Token t = tokenActual();
-        errores.add("Error Sintáctico [Línea " + t.getLinea() + "]: " + msg);
-    }
-
-    private void panicMode() {
-        log("!!! PANIC MODE !!!");
-        while (actual < tokens.length) {
-            String lex = tokenActual().getLexema();
-            if (lex.equals(";") || lex.equals("}")) {
-                if(lex.equals(";")) actual++; 
+        while (!esFin()) {
+            String lexema = tokenActual().getLexema();
+            
+            // Puntos de sincronización seguros
+            if (lexema.equals(";")) {
+                avanzar(); 
                 return;
             }
-            actual++;
+            if (lexema.equals("}")) {
+                // No consumimos la llave aquí, dejamos que la maneje el bloque superior (if o programa)
+                return; 
+            }
+            
+            // Heurística: Si vemos el inicio de otra sentencia clara, paramos
+            String lexUpper = lexema.toUpperCase();
+            if (Set.of("CREAR", "IF", "MOSTRAR", "INSERTAR", "APILAR", "ELIMINAR", "WHILE").contains(lexUpper)) {
+                return;
+            }
+
+            avanzar();
         }
+    }
+
+    // --- CONJUNTOS DE VALIDACIÓN ---
+    private boolean esTipoEstructura(String s) {
+        return Set.of("PILA", "COLA", "BICOLA", "LISTA_ENLAZADA", "LISTA_CIRCULAR", 
+                      "ARBOL_BINARIO", "TABLA_HASH", "GRAFO", "PILA_CIRCULAR").contains(s);
+    }
+
+    private boolean esVerboOperacion(String s) {
+        return Set.of(
+            "INSERTAR", "INSERTAR_FINAL", "INSERTAR_INICIO", "INSERTAR_EN_POSICION", 
+            "INSERTARIZQUIERDA", "INSERTARDERECHA", "AGREGARNODO", "APILAR", "ENCOLAR", 
+            "PUSH", "ENQUEUE", "ELIMINAR", "ELIMINAR_INICIO", "ELIMINAR_FINAL", 
+            "ELIMINAR_FRENTE", "ELIMINAR_POSICION", "ELIMINARNODO", "DESAPILAR", "POP", 
+            "DESENCOLAR", "DEQUEUE", "BUSCAR", "RECORRER", "BFS", "DFS", "AGREGARARISTA", 
+            "ELIMINARARISTA", "ACTUALIZAR", "REHASH", "CAMINOCORTO"
+        ).contains(s);
+    }
+    
+    private boolean esVerboSinParametros(String s) {
+        return Set.of(
+            "ELIMINAR", "DESAPILAR", "POP", "DESENCOLAR", "DEQUEUE", 
+            "ELIMINAR_INICIO", "ELIMINAR_FINAL", "ELIMINAR_FRENTE",
+            "RECORRER", "RECORRERADELANTE", "RECORRERATRAS", "BFS", "DFS",
+            "PREORDEN", "INORDEN", "POSTORDEN", "RECORRIDOPORNIVELES", "VACIAT"
+        ).contains(s);
+    }
+
+    private boolean esPropiedad(String s) {
+        return Set.of("TOPE", "FRENTE", "FRONT", "PEEK", "VERFILA", "CLAVE", 
+                      "TAMANO", "ALTURA", "HOJAS", "NODOS", "VECINOS", "VACIAT", "LLENAT").contains(s);
+    }
+    
+    private boolean esOperadorRelacional(String s) {
+        return Set.of("==", "!=", "<", ">", "<=", ">=").contains(s);
     }
 }

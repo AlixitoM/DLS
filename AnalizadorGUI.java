@@ -15,7 +15,7 @@ public class AnalizadorGUI extends JFrame {
 
     // --- Componentes de la Interfaz ---
     private JTextPane txtEntrada;         
-    private JTextArea txtNumerosLineas;   // --- NUEVO: Componente para los números de línea
+    private JTextArea txtNumerosLineas;   
     private StyledDocument doc;           
     private JTextArea txtSintactico;      
     private JTable tablaSimbolos;         
@@ -34,58 +34,59 @@ public class AnalizadorGUI extends JFrame {
     private Style errorStyle;
     private Style verdeComentario;
     private Style estructuraDato;
-    private Style cadenaStyle; // Agregado por si acaso lo usas después
+    private Style cadenaStyle;
     
     // --- Control de Coloreado ---
     private Timer timerColoreo;
     private boolean coloreando = false;
 
-    // Definimos las palabras para colorear
+    // Definimos las palabras para colorear (Visual solamente)
     private static final Set<String> PALABRAS_RESERVADAS = Set.of(
         "CREAR", "INSERTAR", "APILAR", "ENCOLAR", "MOSTRAR", "IF", "ELSE", 
-        "ELIMINAR", "BUSCAR", "EN", "CON", "VALOR"
+        "ELIMINAR", "BUSCAR", "EN", "CON", "VALOR", "PUSH", "POP", "DEQUEUE", "ENQUEUE",
+        "TOPE", "FRENTE", "TAMANO", "VACIAT"
     );
     
     private static final Set<String> ESTRUCTURAS_DATOS = Set.of(
         "PILA", "COLA", "BICOLA", "LISTA_ENLAZADA", "LISTA_CIRCULAR", 
-        "ARBOL_BINARIO", "TABLA_HASH", "GRAFO", "PILA_CIRCULAR", "COLA_CIRCULAR"
+        "ARBOL_BINARIO", "TABLA_HASH", "GRAFO", "PILA_CIRCULAR"
     );
 
     public AnalizadorGUI() {
         // Configuración de la Ventana Principal
-        setTitle("Compilador DSLabstrae - Léxico y Sintáctico (Con Colores y Líneas)");
-        setSize(1100, 750);
+        setTitle("Compilador DSLabstrae - Léxico y Sintáctico (Integrado)");
+        setSize(1200, 800);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(10, 10));
 
         // --- 1. PANEL SUPERIOR: Código Fuente y Botón ---
         JPanel panelCodigo = new JPanel(new BorderLayout(5, 5));
-        panelCodigo.setBorder(BorderFactory.createTitledBorder(" Editor de Código "));
+        panelCodigo.setBorder(BorderFactory.createTitledBorder(" Editor de Código DSL "));
         
-        // --- CAMBIO: Inicialización de JTextPane ---
         txtEntrada = new JTextPane();
         txtEntrada.setFont(new Font("Consolas", Font.PLAIN, 14));
-        txtEntrada.setText("// Ejemplo con colores\nCREAR COLA_CIRCULAR miCola 10;\nAPILAR 10 EN miPila;\nIF (VACIAT EN miPila) { MOSTRAR 0; }");
+        // Texto de ejemplo actualizado a la nueva gramática
+        txtEntrada.setText("// Ejemplo de DSL\nCREAR PILA miPila;\nAPILAR 10 EN miPila;\nAPILAR 20 EN miPila;\n\nIF (TOPE EN miPila > 15) {\n    MOSTRAR \"Es mayor\";\n    ELIMINAR EN miPila;\n} ELSE {\n    MOSTRAR \"Es menor\";\n}");
         
         doc = txtEntrada.getStyledDocument(); 
         
-        // --- NUEVO: Configuración del Área de Números de Línea ---
+        // Configuración del Área de Números de Línea
         txtNumerosLineas = new JTextArea("1");
-        txtNumerosLineas.setFont(new Font("Consolas", Font.PLAIN, 14)); // Misma fuente que el código
-        txtNumerosLineas.setBackground(new Color(230, 230, 230)); // Gris claro
-        txtNumerosLineas.setForeground(Color.GRAY); // Números en gris oscuro
-        txtNumerosLineas.setEditable(false); // IMPORTANTE: El usuario no puede borrar esto
-        txtNumerosLineas.setMargin(new Insets(0, 5, 0, 5)); // Margen para que se vea ordenado
+        txtNumerosLineas.setFont(new Font("Consolas", Font.PLAIN, 14));
+        txtNumerosLineas.setBackground(new Color(230, 230, 230));
+        txtNumerosLineas.setForeground(Color.GRAY);
+        txtNumerosLineas.setEditable(false);
+        txtNumerosLineas.setMargin(new Insets(0, 5, 0, 5));
 
         JScrollPane scrollCodigo = new JScrollPane(txtEntrada);
-        scrollCodigo.setRowHeaderView(txtNumerosLineas); // --- NUEVO: Esto coloca los números a la izquierda
-        scrollCodigo.setPreferredSize(new Dimension(1000, 150));
+        scrollCodigo.setRowHeaderView(txtNumerosLineas);
+        scrollCodigo.setPreferredSize(new Dimension(1000, 200));
         
         JButton btnAnalizar = new JButton("Compilar (Analizar)");
         btnAnalizar.setBackground(new Color(0, 120, 215)); 
         btnAnalizar.setForeground(Color.WHITE);
-        btnAnalizar.setFont(new Font("Arial", Font.BOLD, 14));
+        btnAnalizar.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btnAnalizar.setFocusPainted(false);
         
         panelCodigo.add(scrollCodigo, BorderLayout.CENTER);
@@ -95,7 +96,7 @@ public class AnalizadorGUI extends JFrame {
         JTabbedPane pestañas = new JTabbedPane();
 
         // Pestaña A: Tabla de Símbolos (Léxico)
-        String[] colsSimbolos = {"Lexema", "Línea", "Col", "Tipo Token", "Estado"};
+        String[] colsSimbolos = {"Lexema", "Línea", "Col", "Tipo Token", "Estado AFD"};
         modeloSimbolos = new DefaultTableModel(colsSimbolos, 0) {
             @Override
             public boolean isCellEditable(int row, int col) { return false; }
@@ -105,7 +106,7 @@ public class AnalizadorGUI extends JFrame {
         JScrollPane scrollSimbolos = new JScrollPane(tablaSimbolos);
         pestañas.addTab("Análisis Léxico (Tokens)", scrollSimbolos);
 
-        // Pestaña B: Árbol Sintáctico (Reglas)
+        // Pestaña B: Árbol Sintáctico (Log de Derivación)
         txtSintactico = new JTextArea();
         txtSintactico.setEditable(false);
         txtSintactico.setFont(new Font("Consolas", Font.PLAIN, 12));
@@ -114,28 +115,30 @@ public class AnalizadorGUI extends JFrame {
         pestañas.addTab("Árbol de Derivación (Sintaxis)", scrollSintactico);
 
         // --- 3. PANEL INFERIOR: Lista de Errores ---
+        // Columnas estilo IDE: Línea | Tipo | Descripción
         String[] colsErrores = {"Línea", "Tipo", "Descripción del Error"};
         modeloErrores = new DefaultTableModel(colsErrores, 0) {
             @Override
             public boolean isCellEditable(int row, int col) { return false; }
         };
         tablaErrores = new JTable(modeloErrores);
-        tablaErrores.setForeground(Color.RED);
-        tablaErrores.setFont(new Font("SansSerif", Font.BOLD, 12));
+        tablaErrores.setForeground(new Color(200, 0, 0)); // Rojo oscuro
+        tablaErrores.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        tablaErrores.setRowHeight(20);
         
         // Ajustar ancho de columnas de error
-        tablaErrores.getColumnModel().getColumn(0).setPreferredWidth(50);  // Línea
+        tablaErrores.getColumnModel().getColumn(0).setPreferredWidth(60);  // Línea
         tablaErrores.getColumnModel().getColumn(0).setMaxWidth(80);
         tablaErrores.getColumnModel().getColumn(1).setPreferredWidth(100); // Tipo
         tablaErrores.getColumnModel().getColumn(1).setMaxWidth(150);
         
         JScrollPane scrollErrores = new JScrollPane(tablaErrores);
-        scrollErrores.setBorder(BorderFactory.createTitledBorder(" Consola de Errores Unificada "));
-        scrollErrores.setPreferredSize(new Dimension(1000, 150));
+        scrollErrores.setBorder(BorderFactory.createTitledBorder(" Consola de Problemas "));
+        scrollErrores.setPreferredSize(new Dimension(1000, 180));
 
         // --- ORGANIZACIÓN FINAL ---
         JSplitPane splitCentral = new JSplitPane(JSplitPane.VERTICAL_SPLIT, pestañas, scrollErrores);
-        splitCentral.setResizeWeight(0.65); 
+        splitCentral.setResizeWeight(0.60); 
 
         add(panelCodigo, BorderLayout.NORTH);
         add(splitCentral, BorderLayout.CENTER);
@@ -155,27 +158,22 @@ public class AnalizadorGUI extends JFrame {
         actualizarNumerosDeLinea(); // Actualización inicial de números
     }
 
-    // --- NUEVO: MÉTODO PARA CALCULAR LOS NÚMEROS DE LÍNEA ---
     private void actualizarNumerosDeLinea() {
-        int lineas = doc.getDefaultRootElement().getElementCount(); // Obtenemos cantidad real de renglones
+        int lineas = doc.getDefaultRootElement().getElementCount(); 
         StringBuilder sb = new StringBuilder();
-        
         for (int i = 1; i <= lineas; i++) {
             sb.append(i).append(System.lineSeparator());
         }
-        
         txtNumerosLineas.setText(sb.toString());
     }
 
-    // --- DEFINICIÓN DE COLORES ---
     private void inicializarEstilos() {
         StyleContext sc = StyleContext.getDefaultStyleContext();
-
         normal = sc.addStyle("normal", null);
         StyleConstants.setForeground(normal, Color.BLACK);
 
         reservada = sc.addStyle("reservada", null);
-        StyleConstants.setForeground(reservada, new Color(0, 0, 180)); // Azul oscuro
+        StyleConstants.setForeground(reservada, new Color(0, 0, 180)); // Azul
         StyleConstants.setBold(reservada, true);
 
         numero = sc.addStyle("numero", null);
@@ -196,10 +194,9 @@ public class AnalizadorGUI extends JFrame {
         StyleConstants.setBold(estructuraDato, true);
         
         cadenaStyle = sc.addStyle("cadena", null);
-        StyleConstants.setForeground(cadenaStyle, new Color(200, 20, 20));
+        StyleConstants.setForeground(cadenaStyle, new Color(200, 20, 20)); // Rojo ladrillo
     }
 
-    // --- LÓGICA DE COLOREADO AUTOMÁTICO ---
     private void colorearTexto() {
         if (coloreando) return;
         coloreando = true;
@@ -207,7 +204,6 @@ public class AnalizadorGUI extends JFrame {
         SwingUtilities.invokeLater(() -> {
             try {
                 String texto = txtEntrada.getText();
-                // Resetear a normal
                 doc.setCharacterAttributes(0, texto.length(), normal, true);
 
                 Matcher m;
@@ -230,25 +226,25 @@ public class AnalizadorGUI extends JFrame {
                 }
 
                 // 3. Operadores
-                m = Pattern.compile("[=+\\-*/<>;(){}]").matcher(texto);
+                m = Pattern.compile("[=+\\-*/<>;(){},]").matcher(texto);
                 while (m.find()) {
                     doc.setCharacterAttributes(m.start(), 1, operador, false);
                 }
                 
-                // 4. Cadenas de texto
+                // 4. Cadenas
                 m = Pattern.compile("\"[^\"]*\"").matcher(texto);
                 while (m.find()) {
                     doc.setCharacterAttributes(m.start(), m.end() - m.start(), cadenaStyle, false);
                 }
 
-                // 5. Comentarios (Al final para que tenga prioridad)
+                // 5. Comentarios
                 m = Pattern.compile("//.*").matcher(texto);
                 while (m.find()) {
                     doc.setCharacterAttributes(m.start(), m.end() - m.start(), verdeComentario, false);
                 }
 
             } catch (Exception e) {
-                // Ignorar errores durante el tecleo rápido
+                // Ignorar
             } finally {
                 coloreando = false;
             }
@@ -256,24 +252,25 @@ public class AnalizadorGUI extends JFrame {
     }
 
     private void habilitarColoreadoTiempoReal() {
-        // Timer espera 300ms después de que dejas de escribir para colorear
         timerColoreo = new Timer(300, e -> colorearTexto());
         timerColoreo.setRepeats(false);
 
         txtEntrada.getDocument().addDocumentListener(new DocumentListener() {
             public void insertUpdate(DocumentEvent e) { 
-                actualizarNumerosDeLinea(); // --- NUEVO: Actualizar números al escribir/dar enter
+                actualizarNumerosDeLinea(); 
                 timerColoreo.restart(); 
             }
             public void removeUpdate(DocumentEvent e) { 
-                actualizarNumerosDeLinea(); // --- NUEVO: Actualizar números al borrar
+                actualizarNumerosDeLinea(); 
                 timerColoreo.restart(); 
             }
             public void changedUpdate(DocumentEvent e) { }
         });
     }
 
-    // --- LÓGICA DE ANÁLISIS ---
+    // ========================================================================
+    // ======================= LÓGICA DE ANÁLISIS =============================
+    // ========================================================================
     private void ejecutarAnalisis() {
         String codigo = txtEntrada.getText();
         
@@ -287,7 +284,7 @@ public class AnalizadorGUI extends JFrame {
         List<ErrorReporte> listaErroresUnificada = new ArrayList<>();
 
         try {
-            // --- FASE 1: ANÁLISIS LÉXICO ---
+            // --- FASE 1: ANÁLISIS LÉXICO (Tokenización y AFD) ---
             Token[] tokens = DSLCore.tokenizador(codigo);
             AFD afd = DSLCore.obtenerInstanciaAFD();
             Token[] resultadosLexicos = afd.aceptar(tokens);
@@ -295,11 +292,13 @@ public class AnalizadorGUI extends JFrame {
             List<Token> tokensValidos = new ArrayList<>();
 
             for (Token t : resultadosLexicos) {
+                // Si el token es un error léxico
                 if (t.getTipoToken().startsWith("ERROR") || !t.existeSimbolo()) {
-                    String desc = String.format("Lexema '%s' no reconocido (%s)", 
+                    String desc = String.format("Lexema '%s' no válido. Causa: %s", 
                                                 t.getLexema(), t.getTipoToken());
                     listaErroresUnificada.add(new ErrorReporte(t.getLinea(), "LÉXICO", desc));
                 } else {
+                    // Token válido, lo añadimos para el parser
                     tokensValidos.add(t);
                     modeloSimbolos.addRow(new Object[]{
                         t.getLexema(), t.getLinea(), t.getColumna(), t.getTipoToken(), t.getEstadoFinal()
@@ -308,45 +307,75 @@ public class AnalizadorGUI extends JFrame {
             }
 
             // --- FASE 2: ANÁLISIS SINTÁCTICO ---
-            Token[] arrayTokensValidos = tokensValidos.toArray(new Token[0]);
-            AnalizadorSintactico sintactico = new AnalizadorSintactico(arrayTokensValidos);
-            sintactico.analizar(); 
+            // Solo ejecutamos si hay tokens, aunque haya errores léxicos previos, 
+            // intentamos parsear lo que sea válido.
+            if (!tokensValidos.isEmpty()) {
+                Token[] arrayTokensValidos = tokensValidos.toArray(new Token[0]);
+                
+                // Instanciamos el Analizador Sintáctico nuevo
+                AnalizadorSintactico sintactico = new AnalizadorSintactico(arrayTokensValidos);
+                sintactico.analizar(); 
 
-            // Mostrar el árbol de derivación
-            List<String> log = sintactico.getLogDerivacion();
-            StringBuilder sb = new StringBuilder();
-            for (String paso : log) {
-                sb.append(paso).append("\n");
-            }
-            txtSintactico.setText(sb.toString());
+                // A. Mostrar el árbol de derivación (Pasos del análisis)
+                List<String> log = sintactico.getLogDerivacion();
+                StringBuilder sb = new StringBuilder();
+                for (String paso : log) {
+                    sb.append(paso).append("\n");
+                }
+                txtSintactico.setText(sb.toString());
+                txtSintactico.setCaretPosition(0); // Scroll al inicio
 
-            // Recolectar errores sintácticos
-            List<String> erroresSin = sintactico.getErrores();
-            for (String errStr : erroresSin) {
-                int linea = 0;
-                try {
-                    if(errStr.contains("Línea ")) {
-                        String num = errStr.substring(errStr.indexOf("Línea ") + 6, errStr.indexOf("]"));
-                        linea = Integer.parseInt(num.trim());
+                // B. Procesar Errores Sintácticos con el formato limpio solicitado
+                List<String> erroresSin = sintactico.getErrores();
+                for (String errStr : erroresSin) {
+                    int linea = 0;
+                    String descripcion = errStr;
+
+                    // Parsear string formato: "Error Sintáctico [Línea 5]: Mensaje..."
+                    try {
+                        if (errStr.contains("[Línea ")) {
+                            int inicioNum = errStr.indexOf("[Línea ") + 7; // Longitud de "[Línea "
+                            int finNum = errStr.indexOf("]");
+                            
+                            if (inicioNum < finNum) {
+                                String numStr = errStr.substring(inicioNum, finNum);
+                                linea = Integer.parseInt(numStr.trim());
+                            }
+                            
+                            // Extraer solo la descripción (lo que sigue después de ": ")
+                            if (errStr.contains(": ")) {
+                                descripcion = errStr.substring(errStr.indexOf(": ") + 2);
+                            }
+                        }
+                    } catch (Exception ex) {
+                        // Si falla el parseo del string, linea = 0 y mensaje completo
+                        linea = 0; 
                     }
-                } catch (Exception ignore) { linea = -1; }
-                listaErroresUnificada.add(new ErrorReporte(linea, "SINTÁCTICO", errStr));
+                    
+                    listaErroresUnificada.add(new ErrorReporte(linea, "SINTÁCTICO", descripcion));
+                }
+            } else {
+                txtSintactico.setText("No hay tokens válidos para analizar sintácticamente.");
             }
 
-            // --- FASE 3: ORDENAR Y MOSTRAR ---
+            // --- FASE 3: ORDENAR Y MOSTRAR ERRORES ---
             Collections.sort(listaErroresUnificada);
 
             for (ErrorReporte err : listaErroresUnificada) {
-                modeloErrores.addRow(new Object[]{err.linea, err.tipo, err.descripcion});
+                modeloErrores.addRow(new Object[]{
+                    (err.linea > 0 ? err.linea : "-"), // Si linea es 0 o -1 poner guion
+                    err.tipo, 
+                    err.descripcion
+                });
             }
 
-            // Resumen Final
+            // --- RESUMEN FINAL ---
             int totalErrores = listaErroresUnificada.size();
             if (totalErrores == 0) {
-                lblResumen.setText(" Análisis Finalizado con ÉXITO. El código es correcto.");
-                lblResumen.setForeground(new Color(0, 100, 0));
+                lblResumen.setText(" ✓ Análisis Finalizado con ÉXITO. El código es correcto.");
+                lblResumen.setForeground(new Color(0, 128, 0)); // Verde fuerte
             } else {
-                lblResumen.setText(" Se encontraron " + totalErrores + " errores en total.");
+                lblResumen.setText(" ⚠ Se encontraron " + totalErrores + " errores.");
                 lblResumen.setForeground(Color.RED);
             }
 
@@ -357,6 +386,11 @@ public class AnalizadorGUI extends JFrame {
     }
 
     public static void main(String[] args) {
+        // Look and Feel nativo para que se vea moderno
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception ignored) {}
+        
         SwingUtilities.invokeLater(() -> new AnalizadorGUI().setVisible(true));
     }
 
@@ -374,6 +408,7 @@ public class AnalizadorGUI extends JFrame {
 
         @Override
         public int compareTo(ErrorReporte o) {
+            // Ordenar por línea ascendente
             return Integer.compare(this.linea, o.linea);
         }
     }
