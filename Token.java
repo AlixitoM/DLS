@@ -5,12 +5,12 @@
 
 public class Token {
    // Atributos que tendra el token
-    private String lexema;// clasificacion a la que pertenece
-    private int linea;// linea del codigo que se encuentra el token
-    private String tipoToken; // Tipo léxico (e.g., PALABRA_RESERVADA, LITERAL_NUMERICA)
-    private String estadoFinal; // Estado final del AFD (solo relevante para Palabras Reservadas)
+    private String lexema;// codigo 'crudo'
+    private int linea;// linea del codigo que se encuentra el 
+    private String tipoToken; // Tipo  del token palabra reservada, operador etc etc 
+    private String estadoFinal; // estado final del afd en el que se encuentra
     private boolean existeSimbolo; // Indica si el lexema fue reconocido (true) o si es un error (false)
-    private int columna;
+    private int columna; // columna en la que se acaba el token
 
     // Constructor usado por el tokenizador (solo obtiene lexema y línea)
    public Token(String lexema, int linea, int columna) {
