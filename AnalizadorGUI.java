@@ -86,18 +86,18 @@ public class AnalizadorGUI extends JFrame {
         JButton btnAnalizar = new JButton("Compilar (Analizar)");
         btnAnalizar.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btnAnalizar.setForeground(Color.WHITE);
-        btnAnalizar.setBackground(new Color(0, 120, 215)); // Azul Windows
-        btnAnalizar.setFocusPainted(false);      // Quita el recuadro de foco feo
-        btnAnalizar.setBorderPainted(false);     // Quita el borde 3D antiguo
-        btnAnalizar.setCursor(new Cursor(Cursor.HAND_CURSOR)); // Pone la manita al pasar el mouse
+        btnAnalizar.setBackground(new Color(0, 120, 215)); 
+        btnAnalizar.setFocusPainted(false);      
+        btnAnalizar.setBorderPainted(false);     
+        btnAnalizar.setCursor(new Cursor(Cursor.HAND_CURSOR)); 
         btnAnalizar.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
 
         btnAnalizar.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent evt) {
-                btnAnalizar.setBackground(new Color(0, 90, 170)); // Color más oscuro
+                btnAnalizar.setBackground(new Color(0, 90, 170)); 
             }
             public void mouseExited(java.awt.event.MouseEvent evt) {
-                btnAnalizar.setBackground(new Color(0, 120, 215)); // Color original
+                btnAnalizar.setBackground(new Color(0, 120, 215)); 
             }
         });
         
@@ -139,9 +139,9 @@ public class AnalizadorGUI extends JFrame {
         tablaErrores.setRowHeight(20);
         
         // Ajustar ancho de columnas de error
-        tablaErrores.getColumnModel().getColumn(0).setPreferredWidth(60);  // Línea
+        tablaErrores.getColumnModel().getColumn(0).setPreferredWidth(60);  
         tablaErrores.getColumnModel().getColumn(0).setMaxWidth(80);
-        tablaErrores.getColumnModel().getColumn(1).setPreferredWidth(100); // Tipo
+        tablaErrores.getColumnModel().getColumn(1).setPreferredWidth(100); 
         tablaErrores.getColumnModel().getColumn(1).setMaxWidth(150);
         
         JScrollPane scrollErrores = new JScrollPane(tablaErrores);
@@ -185,11 +185,11 @@ public class AnalizadorGUI extends JFrame {
         StyleConstants.setForeground(normal, Color.BLACK);
 
         reservada = sc.addStyle("reservada", null);
-        StyleConstants.setForeground(reservada, new Color(0, 0, 180)); // Azul
+        StyleConstants.setForeground(reservada, new Color(0, 0, 180)); 
         StyleConstants.setBold(reservada, true);
 
         numero = sc.addStyle("numero", null);
-        StyleConstants.setForeground(numero, new Color(150, 0, 150)); // Morado
+        StyleConstants.setForeground(numero, new Color(150, 0, 150)); 
 
         operador = sc.addStyle("operador", null);
         StyleConstants.setForeground(operador, Color.DARK_GRAY);
@@ -198,15 +198,15 @@ public class AnalizadorGUI extends JFrame {
         StyleConstants.setForeground(errorStyle, Color.RED);
 
         verdeComentario = sc.addStyle("comentario", null);
-        StyleConstants.setForeground(verdeComentario, new Color(0, 128, 0)); // Verde
+        StyleConstants.setForeground(verdeComentario, new Color(0, 128, 0)); 
         StyleConstants.setItalic(verdeComentario, true);
 
         estructuraDato = sc.addStyle("estructura", null);
-        StyleConstants.setForeground(estructuraDato, new Color(255, 140, 0)); // Naranja
+        StyleConstants.setForeground(estructuraDato, new Color(255, 140, 0)); 
         StyleConstants.setBold(estructuraDato, true);
         
         cadenaStyle = sc.addStyle("cadena", null);
-        StyleConstants.setForeground(cadenaStyle, new Color(200, 20, 20)); // Rojo ladrillo
+        StyleConstants.setForeground(cadenaStyle, new Color(200, 20, 20)); 
     }
 
     private void colorearTexto() {
