@@ -27,7 +27,7 @@ public class DSLCore {
                 "BUSCAR", "TOPE", "FRENTE", "PEEK", "VERFILA", "FRONT", "CLAVE",
                 "RECORRER", "RECORRERADELANTE", "RECORRERATRAS", "PREORDEN", "INORDEN", "POSTORDEN", "RECORRIDOPORNIVELES",
                 "ACTUALIZAR", "REHASH", "AGREGARARISTA", "ELIMINARARISTA", "VECINOS", "BFS", "DFS", "CAMINOCORTO",
-                "VACIAT", "LLENAT", "TAMANO", "ALTURA", "HOJAS", "NODOS",
+                "VACIA", "LLENA", "TAMANO", "ALTURA", "HOJAS", "NODOS",
                 "EN", "CON", "VALOR", "CREAR",
                 "MOSTRAR", "IF", "ELSE"
         );
@@ -54,7 +54,7 @@ public class DSLCore {
     
     
      */
-    private static Set<String> getEstadosDSL() {
+    public static Set<String> getEstadosDSL() {
         Set<String> todosLosEstados = new HashSet<>();
         todosLosEstados.add("INICIO");
 
@@ -73,7 +73,7 @@ public class DSLCore {
     siendo el primer string el nombre del estado el character el caracter con el que va y el segundo string al estado al que va 
     
      */
-    private static Map<String, Map<Character, String>> getTransicionesDSL() {
+    public static Map<String, Map<Character, String>> getTransicionesDSL() {
         Map<String, Map<Character, String>> transiciones = new HashMap<>();
 
         // fpr para rellenar el hash transiciones el campo estados obteniendo la informacion del hash pasado  
@@ -106,9 +106,8 @@ public class DSLCore {
         return transiciones;
     }
 
-    
     // ahora hacemos el set con los alfabetos 
-    private static Set<Character> getAlfabetoDSL() {
+    public static Set<Character> getAlfabetoDSL() {
         Set<Character> alfabeto = new HashSet<>();
         for (char c = 'A'; c <= 'Z'; c++) {
             alfabeto.add(c);
@@ -119,79 +118,57 @@ public class DSLCore {
         alfabeto.add('_');
         return alfabeto;
     }
-/*
- Este metodo retorna un array de cadenas los cuales seran las palabras en cada celda sin espacios    
-    
-*/
-    public static String[] tokenizarLinea(String entrada) {
-        /*
-        
-        Primero obtiene 
-        */
-        int indiceComentario = entrada.indexOf("//");
-        if (indiceComentario != -1) {
-            entrada = entrada.substring(0, indiceComentario);
-        }
-
-        String tokenizada = entrada.trim().replaceAll("\\s+", " ");
-
-        tokenizada = tokenizada.replaceAll("(==|!=|<=|>=|&&|\\|\\||[\\Q(){}[]|,;=+-*/<>\u0021&|.\\E])", " $1 ");
-
-        tokenizada = tokenizada.trim().replaceAll("\\s+", " ");
-
-        if (tokenizada.isEmpty()) {
-            return new String[0];
-        }
-
-        return tokenizada.split(" ");
-    }
 
     public static Token[] tokenizador(String entrada) {
         List<Token> listaTokens = new ArrayList<>();
-
+        // se crea la regex para la validacion de los tokens con la siguiente jerarquia 
+        /*
+        1.- Comentarios
+        2.- cadenas
+        3.-operadores logicos
+        4.- identificadores
+        cualquier otra cosa 
+         */
         String regex = "(//.*)|"
                 + "(\"[^\"]*\")|"
                 + "(==|!=|<=|>=|&&|\\|\\|)|"
-                + "([\\Q(){}[]|,;=+-*/<>\u0021&|.\\E])|" 
+                + "([\\Q(){}[]|,;=+-*/<>\u0021&|.\\E])|"
                 + "([^\\s\\Q(){}[]|,;=+-*/<>\u0021&|.\\E\"]+)";
-
+        // convertimos la regex en un patron para que se más rapido de ejecutrar
         java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(regex);
 
+        // crea un arreglo donde separa las lineas
         String[] lineas = entrada.split("\n");
         int numLinea = 1;
-
+        // por cada linea 
         for (String lineaOriginal : lineas) {
             java.util.regex.Matcher matcher = pattern.matcher(lineaOriginal);
-
+            // si encuentra una coincidencia 
             while (matcher.find()) {
+                // iguala la variable token donde hay una coincidencia
                 String token = matcher.group();
 
-           
+                // si obtiene una coincidecnia del grupo 1 es un comentario 
+                //por lo que lo ignora
                 if (matcher.group(1) != null) {
                     continue;
                 }
-
+                // si el token es un espacio en blanco , lo ignora
                 if (token.trim().isEmpty()) {
                     continue;
                 }
-
+                //una vez acaba la iteracion aumenta el numero de columna
                 int columna = matcher.start() + 1;
-
+                // agrega el token al arraylist
                 listaTokens.add(new Token(token, numLinea, columna));
             }
+            //una vez acaba todas las columnas aumenta la linea 
+
             numLinea++;
         }
-        return listaTokens.toArray(new Token[0]);
-    }
+                // una vez recorre todas las lineas convierte el arraylist en un arreglo 
 
-    public static AFD obtenerInstanciaAFD() {
-        return new AFD(
-                getEstadosDSL(),
-                getAlfabetoDSL(),
-                getTransicionesDSL(),
-                "INICIO",
-                getEstadosAceptacionDSL()
-        );
+        return listaTokens.toArray(new Token[0]);
     }
 
 }
