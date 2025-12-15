@@ -182,24 +182,8 @@ public class AFD {
                     estadoReporte = "N/A"; // ID genérico
                 }
                 
-            } else if (ultimoEstadoAceptado != null && ultimoCaracterAceptado < lexemaUpper.length() - 1) {
-                // Caso 3: Falló en un carácter intermedio/final (Error con prefijo PR).
-                
-                String lexemaValido = lexema.substring(0, ultimoCaracterAceptado + 1);
-                String lexemaRestante = lexema.substring(ultimoCaracterAceptado + 1);
-                
-                // 1. Clasificar la parte válida (la subcadena más larga)
-                String tipoPR = TIPO_POR_PR.getOrDefault(lexemaValido.toUpperCase(), "IDENTIFICADOR");
-                resultados.add(new Token(lexemaValido, linea,tk.getColumna(), tipoPR, ultimoEstadoAceptado, true));
-                
-                // 2. Clasificar la parte restante como ERROR LÉXICO
-                String tipoError = determinarTipoLexema(lexemaRestante);
-                resultados.add(new Token(lexemaRestante, linea, tk.getColumna(),tipoError, "N/A", false));
-                
-                continue; 
-                
-            } else {
-                // Caso 4: Error Léxico simple (ej. '$', '234Inválido', 'ERROR_CADENA_INCOMPLETA')
+            }  else {
+                // Caso 3: Error Léxico simple (ej. '$', '234Inválido', 'ERROR_CADENA_INCOMPLETA')
                 tipoFinal = tipoFinalAuxiliar;
                 reconocido = false;
                 

@@ -149,14 +149,11 @@ public class DSLCore {
     public static Token[] tokenizador(String entrada) {
         List<Token> listaTokens = new ArrayList<>();
 
-        String regex
-                = "(//.*)|"
+        String regex = "(//.*)|"
                 + "(\"[^\"]*\")|"
                 + "(==|!=|<=|>=|&&|\\|\\|)|"
-                + "([a-zA-Z_][a-zA-Z0-9_]*)|"
-                + "(\\d+)|"
-                + "([\\Q(){}[]|,;=+-*/<>\u0021&|.\\E])|"
-                + "(\\S+)";
+                + "([\\Q(){}[]|,;=+-*/<>\u0021&|.\\E])|" 
+                + "([^\\s\\Q(){}[]|,;=+-*/<>\u0021&|.\\E\"]+)";
 
         java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(regex);
 
