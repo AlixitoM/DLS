@@ -2,20 +2,20 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Analizador Sintáctico (Parser) con Reporte Estructurado.
- * Genera un log jerárquico para visualizar el árbol de derivación en la GUI.
+/*
+  Analizador Sintáctico (Parser) Descendente Recursivo.
+  Valida la gramática del DSL y construye un log jerárquico del árbol de derivación
+  para su representación visual en la GUI, gestionando errores mediante "Modo Pánico".
  */
 public class AnalizadorSintactico {
     private final Token[] tokens;
-    private int actual; 
-    private final List<String> logDerivacion; 
+    private int actual;
+    private final List<String> logDerivacion;
     private final List<String> errores;
     
-    // Variable para controlar la sangría del reporte visual
+    // Control de indentación para la representación visual del árbol
     private int nivelIndentacion = 0;
 
-    // Excepción personalizada
     private static class ParserException extends RuntimeException {
         public ParserException(String message) {
             super(message);
@@ -29,24 +29,27 @@ public class AnalizadorSintactico {
         this.errores = new ArrayList<>();
     }
 
-    // --- MÉTODO AUXILIAR PARA EL REPORTE VISUAL ---
-    // Agrega espacios o tuberías (|) según la profundidad del análisis
+    /*
+      Registra un paso en el árbol de derivación aplicando la indentación actual.
+     */
     private void log(String mensaje) {
         StringBuilder sb = new StringBuilder();
-        // Por cada nivel de profundidad, agregamos una marca visual
         for (int i = 0; i < nivelIndentacion; i++) {
-            sb.append("|  "); 
+            sb.append("|   ");
         }
         sb.append(mensaje);
         logDerivacion.add(sb.toString());
     }
 
-    // Método principal
+    /*
+      Punto de entrada principal del análisis.
+      Inicia la derivación desde el símbolo inicial <Programa>.
+     */
     public void analizar() {
-        logDerivacion.clear(); // Limpiar log anterior si se reusa la instancia
+        logDerivacion.clear();
         log("INICIO DEL ANÁLISIS SINTÁCTICO");
         try {
-            programa(); 
+            programa();
         } catch (Exception e) {
             errores.add("DSL(999) Error irrecuperable: " + e.getMessage());
         }
@@ -57,33 +60,41 @@ public class AnalizadorSintactico {
     public List<String> getErrores() { return errores; }
 
     // -------------------------------------------------------------------------
-    // --- REGLAS DE PRODUCCIÓN (CON LÓGICA DE INDENTACIÓN) --------------------
+    // --- REGLAS DE PRODUCCIÓN (GRAMÁTICA) ------------------------------------
     // -------------------------------------------------------------------------
 
+    /*
+      <Programa> ::= <Sentencia>*
+      Procesa la secuencia principal de sentencias hasta el fin del archivo.
+     */
     private void programa() {
-        nivelIndentacion++; // Entramos al nivel principal
+        nivelIndentacion++;
         while (!esFin()) {
+            // Ignorar llaves de cierre sueltas (recuperación o fin de bloque previo)
             if (check("}")) {
-                avanzar(); 
-                continue; 
+                avanzar();
+                continue;
             }
 
             try {
-                sentencia(); 
+                sentencia();
             } catch (ParserException e) {
-                errores.add(e.getMessage()); 
+                errores.add(e.getMessage());
                 sincronizar();
             }
         }
-        nivelIndentacion--; // Salimos del nivel principal
+        nivelIndentacion--;
     }
 
+    /*
+      <Sentencia> ::= <Declaracion> | <Operacion> | <If> | <Mostrar> | <Asignacion>
+      Despachador principal que decide la regla a aplicar según el token actual.
+     */
     private void sentencia() {
-        if (esFin()) return; 
+        if (esFin()) return;
 
         String lexema = tokenActual().getLexema().toUpperCase();
 
-        // Dispatcher: Decide qué regla llamar y gestiona la indentación del log
         if (lexema.equals("CREAR")) {
             log("<Sentencia> -> Declaración");
             nivelIndentacion++;
@@ -115,27 +126,31 @@ public class AnalizadorSintactico {
             nivelIndentacion--;
         }
         else if (lexema.equals(";")) {
-            consumir(";"); 
+            consumir(";");
         }
         else {
             throw error("Se esperaba sentencia válida (CREAR, IF, MOSTRAR...), se encontró: '" + lexema + "'", 203);
         }
     }
 
+    /*
+      <Declaracion> ::= CREAR <Tipo> IDENTIFICADOR [LITERAL_NUMERICA] ;
+     */
     private void declaracion() {
         consumir("CREAR");
         
-        // Logueamos detalles específicos para que el reporte sea útil
         String tipo = tokenActual().getLexema().toUpperCase();
         if (!esTipoEstructura(tipo)) {
             throw error("Tipo de estructura desconocido: " + tipo, 204);
         }
+        
         log("Tipo: " + tipo);
-        consumir(tokenActual().getLexema()); // Consumir Tipo
+        consumir(tokenActual().getLexema()); 
         
         log("Nombre ID: " + tokenActual().getLexema());
         consumir("IDENTIFICADOR");
         
+        // Tamaño opcional para estructuras estáticas
         if (tokenActual().getTipoToken().equals("LITERAL_NUMERICA")) {
              log("Tamaño definido: " + tokenActual().getLexema());
              consumir("LITERAL_NUMERICA");
@@ -144,18 +159,23 @@ public class AnalizadorSintactico {
         log("✔ Declaración completada.");
     }
 
+    /*
+      <Operacion> ::= VERBO [Parametros] EN IDENTIFICADOR ;
+      Maneja la sintaxis variable de los verbos (con 0, 1 o más parámetros).
+     */
     private void operacionEstructura() {
         String verbo = tokenActual().getLexema().toUpperCase();
         log("Acción: " + verbo);
-        consumir(verbo); 
+        consumir(verbo);
 
-        // Lógica de parámetros según el verbo
+        // 1. Verbos sin parámetros explícitos (ej. ELIMINAR, RECORRER)
         if (esVerboSinParametros(verbo)) {
             if (!check("EN")) throw error("Falta 'EN' después de " + verbo, 205);
             consumir("EN");
             log("Sobre estructura: " + tokenActual().getLexema());
             consumir("IDENTIFICADOR");
         }
+        // 2. Operaciones complejas específicas
         else if (verbo.equals("INSERTAR_EN_POSICION")) {
             log("Param: Posición");
             expresion();
@@ -185,11 +205,11 @@ public class AnalizadorSintactico {
             consumir("EN");
             consumir("IDENTIFICADOR");
         }
+        // 3. Caso estándar (Un parámetro + EN + ID)
         else {
-            // Caso estándar (INSERTAR x EN y)
             if (!verbo.startsWith("ELIMINAR") && !verbo.startsWith("DES") && !verbo.startsWith("POP")) {
                 log("Valor/Dato:");
-                expresion(); 
+                expresion();
             }
             if (!check("EN")) throw error("Falta 'EN'", 205);
             consumir("EN");
@@ -200,6 +220,9 @@ public class AnalizadorSintactico {
         consumir(";");
     }
 
+    /*
+      <If> ::= IF ( <Condicion> ) { <Sentencia>* } [ ELSE { <Sentencia>* } ]
+     */
     private void controlFlujoIf() {
         consumir("IF");
         consumir("(");
@@ -209,7 +232,6 @@ public class AnalizadorSintactico {
         consumir("{");
         
         log("--- Bloque VERDADERO ---");
-        // Procesar sentencias dentro del bloque IF
         while (!check("}") && !esFin()) {
             try {
                 sentencia();
@@ -247,7 +269,7 @@ public class AnalizadorSintactico {
     private void asignacion() {
         String id = tokenActual().getLexema();
         consumir("IDENTIFICADOR");
-        consumir("="); 
+        consumir("=");
         log("Asignando valor a: " + id);
         expresion();
         consumir(";");
@@ -265,9 +287,10 @@ public class AnalizadorSintactico {
         }
     }
 
-    // --- EXPRESIONES ARITMÉTICAS ---
-    // Mantenemos esto simple en el log para no saturar con demasiados detalles matemáticos
-    
+    // -------------------------------------------------------------------------
+    // --- GRAMÁTICA DE EXPRESIONES (PRECEDENCIA DE OPERADORES) ----------------
+    // -------------------------------------------------------------------------
+
     private void expresion() {
         termino();
         while (check("+") || check("-")) {
@@ -310,10 +333,13 @@ public class AnalizadorSintactico {
         }
     }
 
-    // =========================================================================
-    // ======================== MÉTODOS AUXILIARES CORE ========================
-    // =========================================================================
+    // -------------------------------------------------------------------------
+    // --- MÉTODOS AUXILIARES Y MANEJO DE ERRORES ------------------------------
+    // -------------------------------------------------------------------------
 
+    /*
+      Verifica y consume el token esperado. Si no coincide, lanza una excepción.
+     */
     private void consumir(String expected) {
         if (esFin()) {
             throw error("Final inesperado. Se esperaba: " + expected, 299);
@@ -323,17 +349,15 @@ public class AnalizadorSintactico {
         String lexema = t.getLexema().toUpperCase();
         String tipo = t.getTipoToken();
 
-        boolean match = false;
-        if (lexema.equals(expected.toUpperCase())) match = true;
-        else if (tipo.equals(expected)) match = true;
+        boolean match = lexema.equals(expected.toUpperCase()) || tipo.equals(expected);
 
         if (match) {
             avanzar();
         } else {
+            // Mapeo de códigos de error según el tipo esperado
             int codigoError = 203; 
             if (expected.equals(";")) codigoError = 201;
-            else if (expected.equals("}")) codigoError = 202; 
-            else if (expected.equals(")")) codigoError = 202; 
+            else if (expected.equals("}") || expected.equals(")")) codigoError = 202; 
             else if (expected.equals("EN")) codigoError = 205;
             else if (expected.equals("IDENTIFICADOR")) codigoError = 208;
 
@@ -355,24 +379,10 @@ public class AnalizadorSintactico {
         return false;
     }
 
-    private Token tokenActual() {
-        if (actual >= tokens.length) return tokens[tokens.length - 1];
-        return tokens[actual];
-    }
-
-    private void avanzar() {
-        if (actual < tokens.length) actual++;
-    }
-
-    private boolean esFin() {
-        return actual >= tokens.length;
-    }
-
-    private ParserException error(String mensaje, int codigo) {
-        int linea = esFin() ? tokens[tokens.length-1].getLinea() : tokenActual().getLinea();
-        return new ParserException("DSL(" + codigo + ") [Línea " + linea + "]: " + mensaje);
-    }
-
+    /*
+      Estrategia de recuperación de errores "Modo Pánico".
+      Avanza tokens hasta encontrar un delimitador seguro (; o }) o una palabra clave de inicio.
+     */
     private void sincronizar() {
         log(">> ERROR DETECTADO - RECUPERANDO MODO PÁNICO... <<");
         
@@ -391,7 +401,28 @@ public class AnalizadorSintactico {
         }
     }
 
-    // --- CONJUNTOS DE VALIDACIÓN ---
+    private Token tokenActual() {
+        if (actual >= tokens.length) return tokens[tokens.length - 1];
+        return tokens[actual];
+    }
+
+    private void avanzar() {
+        if (actual < tokens.length) actual++;
+    }
+
+    private boolean esFin() {
+        return actual >= tokens.length;
+    }
+
+    private ParserException error(String mensaje, int codigo) {
+        int linea = esFin() ? tokens[tokens.length-1].getLinea() : tokenActual().getLinea();
+        return new ParserException("DSL(" + codigo + ") [Línea " + linea + "]: " + mensaje);
+    }
+
+    // -------------------------------------------------------------------------
+    // --- CONJUNTOS DE VALIDACIÓN RÁPIDA (LOOKUPS) ----------------------------
+    // -------------------------------------------------------------------------
+
     private boolean esTipoEstructura(String s) {
         return Set.of("PILA", "COLA", "BICOLA", "LISTA_ENLAZADA", "LISTA_CIRCULAR", 
                       "ARBOL_BINARIO", "TABLA_HASH", "GRAFO", "PILA_CIRCULAR").contains(s);
