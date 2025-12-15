@@ -3,30 +3,25 @@ import java.util.List;
 import java.util.Set;
 
 /**
-  Analizador Sintáctico (Parser) implementado como un Descendente Recursivo.
-  Esta clase se encarga de validar que la secuencia de tokens generada por el 
-  Analizador Léxico (AFD) cumpla con las reglas gramaticales del lenguaje (Gramática Libre de Contexto).
-  Funciona solicitando tokens uno a uno y verificando si coinciden con la estructura esperada
-  (Reglas de Producción). Si encuentra un error, utiliza una estrategia de recuperación 
-  "Modo Pánico" para intentar seguir analizando el resto del código.
+ * Analizador Sintáctico (Parser) con Reporte Estructurado.
+ * Genera un log jerárquico para visualizar el árbol de derivación en la GUI.
  */
 public class AnalizadorSintactico {
     private final Token[] tokens;
-    private int actual; // Puntero al token actual en el flujo
-    private final List<String> logDerivacion; // Historial de reglas aplicadas (para mostrar el árbol)
-    private final List<String> errores;       // Lista de errores encontrados
+    private int actual; 
+    private final List<String> logDerivacion; 
+    private final List<String> errores;
+    
+    // Variable para controlar la sangría del reporte visual
+    private int nivelIndentacion = 0;
 
-    // Excepción personalizada para el control de flujo de errores sintácticos
+    // Excepción personalizada
     private static class ParserException extends RuntimeException {
         public ParserException(String message) {
             super(message);
         }
     }
 
-    /**
-      Constructor del Analizador Sintáctico.
-      @param tokens Arreglo de tokens provenientes del análisis léxico.
-     */
     public AnalizadorSintactico(Token[] tokens) {
         this.tokens = tokens;
         this.actual = 0;
@@ -34,195 +29,201 @@ public class AnalizadorSintactico {
         this.errores = new ArrayList<>();
     }
 
-    /*
-      Método principal que inicia el proceso de compilación sintáctica.
-      Envuelve la llamada al símbolo inicial <Programa> en un bloque try-catch general.
-     */
+    // --- MÉTODO AUXILIAR PARA EL REPORTE VISUAL ---
+    // Agrega espacios o tuberías (|) según la profundidad del análisis
+    private void log(String mensaje) {
+        StringBuilder sb = new StringBuilder();
+        // Por cada nivel de profundidad, agregamos una marca visual
+        for (int i = 0; i < nivelIndentacion; i++) {
+            sb.append("|  "); 
+        }
+        sb.append(mensaje);
+        logDerivacion.add(sb.toString());
+    }
+
+    // Método principal
     public void analizar() {
-        logDerivacion.add("Inicio del Análisis Sintáctico...");
+        logDerivacion.clear(); // Limpiar log anterior si se reusa la instancia
+        log("INICIO DEL ANÁLISIS SINTÁCTICO");
         try {
-            programa(); // Llamada al símbolo inicial de la gramática
+            programa(); 
         } catch (Exception e) {
             errores.add("DSL(999) Error irrecuperable: " + e.getMessage());
         }
-        logDerivacion.add("Fin del Análisis.");
+        log("FIN DEL ANÁLISIS");
     }
 
     public List<String> getLogDerivacion() { return logDerivacion; }
     public List<String> getErrores() { return errores; }
 
     // -------------------------------------------------------------------------
-    // --- REGLAS DE PRODUCCIÓN (MÉTODOS RECURSIVOS) ---------------------------
+    // --- REGLAS DE PRODUCCIÓN (CON LÓGICA DE INDENTACIÓN) --------------------
     // -------------------------------------------------------------------------
 
-    /*
-      Regla: <Programa>
-      Representa el bucle principal que procesa sentencias hasta llegar al final del archivo (EOF).
-      Incluye lógica de recuperación de errores para evitar que el compilador se detenga 
-      en el primer fallo.
-     */
     private void programa() {
+        nivelIndentacion++; // Entramos al nivel principal
         while (!esFin()) {
-            // Protección contra ciclos infinitos en recuperación:
-            // Si encontramos una llave de cierre suelta en el nivel principal, la ignoramos.
             if (check("}")) {
                 avanzar(); 
                 continue; 
             }
 
             try {
-                sentencia(); // Intenta procesar una sentencia completa
+                sentencia(); 
             } catch (ParserException e) {
-                // Estrategia de recuperación: Registrar error y Sincronizar (Panic Mode)
                 errores.add(e.getMessage()); 
                 sincronizar();
             }
         }
+        nivelIndentacion--; // Salimos del nivel principal
     }
 
-    /*
-      Regla: <Sentencia>
-      Actúa como un "Dispatcher". Mira el token actual (Lookahead) para decidir 
-      a qué regla específica derivar (Declaración, Operación, If, etc.).
-     */
     private void sentencia() {
         if (esFin()) return; 
 
         String lexema = tokenActual().getLexema().toUpperCase();
 
+        // Dispatcher: Decide qué regla llamar y gestiona la indentación del log
         if (lexema.equals("CREAR")) {
+            log("<Sentencia> -> Declaración");
+            nivelIndentacion++;
             declaracion();
+            nivelIndentacion--;
         } 
         else if (esVerboOperacion(lexema)) {
+            log("<Sentencia> -> Operación Estructura");
+            nivelIndentacion++;
             operacionEstructura();
+            nivelIndentacion--;
         }
         else if (lexema.equals("IF")) {
+            log("<Sentencia> -> Estructura IF");
+            nivelIndentacion++;
             controlFlujoIf();
+            nivelIndentacion--;
         }
         else if (lexema.equals("MOSTRAR")) {
+            log("<Sentencia> -> Salida");
+            nivelIndentacion++;
             salida();
+            nivelIndentacion--;
         }
         else if (tokenActual().getTipoToken().equals("IDENTIFICADOR")) {
+            log("<Sentencia> -> Asignación");
+            nivelIndentacion++;
             asignacion();
+            nivelIndentacion--;
         }
         else if (lexema.equals(";")) {
-            consumir(";"); // Sentencia vacía válida
+            consumir(";"); 
         }
         else {
-            // Si el token no coincide con ningún inicio de sentencia válido, es un error.
-            throw error("Se esperaba sentencia (CREAR, IF, INSERTAR...), se encontró: '" + lexema + "'", 203);
+            throw error("Se esperaba sentencia válida (CREAR, IF, MOSTRAR...), se encontró: '" + lexema + "'", 203);
         }
     }
 
-    /*
-      Regla: <Declaración>
-      Valida la creación de estructuras de datos. 
-      Ej: CREAR PILA miPila;
-     */
     private void declaracion() {
-        logDerivacion.add("<Sentencia> -> Declaración");
         consumir("CREAR");
         
-        if (!esTipoEstructura(tokenActual().getLexema().toUpperCase())) {
-            throw error("Tipo de estructura desconocido: " + tokenActual().getLexema(), 204);
+        // Logueamos detalles específicos para que el reporte sea útil
+        String tipo = tokenActual().getLexema().toUpperCase();
+        if (!esTipoEstructura(tipo)) {
+            throw error("Tipo de estructura desconocido: " + tipo, 204);
         }
-        consumir(tokenActual().getLexema()); // Consumir Tipo (PILA, COLA, etc.)
+        log("Tipo: " + tipo);
+        consumir(tokenActual().getLexema()); // Consumir Tipo
+        
+        log("Nombre ID: " + tokenActual().getLexema());
         consumir("IDENTIFICADOR");
         
-        // Soporte opcional para tamaño en la declaración (ej. arreglos o estructuras acotadas)
         if (tokenActual().getTipoToken().equals("LITERAL_NUMERICA")) {
+             log("Tamaño definido: " + tokenActual().getLexema());
              consumir("LITERAL_NUMERICA");
         }
         consumir(";");
-        logDerivacion.add("   Declaración correcta.");
+        log("✔ Declaración completada.");
     }
 
-    /*
-      Regla: <Operación>
-      Maneja verbos de acción sobre las estructuras (INSERTAR, ELIMINAR, etc.).
-      Valida la sintaxis específica de cada verbo (parametros necesarios).
-     */
     private void operacionEstructura() {
-        logDerivacion.add("<Sentencia> -> Operación de Estructura");
         String verbo = tokenActual().getLexema().toUpperCase();
+        log("Acción: " + verbo);
         consumir(verbo); 
 
-        // Caso 1: Verbos sin valores extra (ej. ELIMINAR EN pila)
+        // Lógica de parámetros según el verbo
         if (esVerboSinParametros(verbo)) {
-            if (!check("EN")) throw error("Falta la palabra reservada 'EN' después de " + verbo, 205);
+            if (!check("EN")) throw error("Falta 'EN' después de " + verbo, 205);
             consumir("EN");
+            log("Sobre estructura: " + tokenActual().getLexema());
             consumir("IDENTIFICADOR");
         }
-        // Caso 2: Inserción compleja con posición y valor
         else if (verbo.equals("INSERTAR_EN_POSICION")) {
-            expresion(); // Posición
+            log("Param: Posición");
+            expresion();
             consumir("EN");
             consumir("IDENTIFICADOR");
             consumir("CON");
             consumir("VALOR");
-            expresion(); // Valor a insertar
+            log("Param: Valor");
+            expresion();
         }
-        // Caso 3: Operaciones de Grafos
         else if (verbo.equals("AGREGARARISTA") || verbo.equals("CAMINOCORTO")) {
-            expresion(); // Origen
-            expresion(); // Destino
+            log("Nodo Origen:");
+            expresion();
+            log("Nodo Destino:");
+            expresion();
             consumir("EN");
             consumir("IDENTIFICADOR");
-             if (check("CON") || check("PESO")) {
+            if (check("CON") || check("PESO")) {
                  avanzar();
-                 expresion(); // Peso
+                 log("Con Peso:");
+                 expresion();
             }
         }
-        // Caso 4: Eliminación por posición
         else if (verbo.equals("ELIMINAR_POSICION")) {
+            log("Índice a eliminar:");
             expresion();
             consumir("EN");
             consumir("IDENTIFICADOR");
         }
-        // Caso 5: Estándar (INSERTAR valor EN estructura)
         else {
+            // Caso estándar (INSERTAR x EN y)
             if (!verbo.startsWith("ELIMINAR") && !verbo.startsWith("DES") && !verbo.startsWith("POP")) {
+                log("Valor/Dato:");
                 expresion(); 
             }
-            
-            if (!check("EN")) {
-                throw error("Falta la palabra reservada 'EN' después del valor/operación.", 205);
-            }
+            if (!check("EN")) throw error("Falta 'EN'", 205);
             consumir("EN");
+            log("En estructura: " + tokenActual().getLexema());
             consumir("IDENTIFICADOR");
         }
 
         consumir(";");
-        logDerivacion.add("   Operación '" + verbo + "' válida.");
     }
 
-    /*
-      Regla: <IF>
-      Valida la estructura de control IF-ELSE, incluyendo el bloque de código entre llaves.
-     */
     private void controlFlujoIf() {
-        logDerivacion.add("<Sentencia> -> Control IF");
         consumir("IF");
         consumir("(");
+        log("Evaluando Condición...");
         condicion();
         consumir(")");
         consumir("{");
         
+        log("--- Bloque VERDADERO ---");
         // Procesar sentencias dentro del bloque IF
         while (!check("}") && !esFin()) {
             try {
                 sentencia();
             } catch (ParserException e) {
-                // Recuperación local dentro del bloque para no perder todo el IF
                 errores.add(e.getMessage());
                 sincronizar();
             }
         }
         consumir("}");
+        log("--- Fin Bloque VERDADERO ---");
 
-        // Parte opcional ELSE
         if (match("ELSE")) {
             consumir("{");
+            log("--- Bloque FALSO (Else) ---");
             while (!check("}") && !esFin()) {
                 try {
                     sentencia();
@@ -232,35 +233,40 @@ public class AnalizadorSintactico {
                 }
             }
             consumir("}");
+            log("--- Fin Bloque FALSO ---");
         }
     }
 
     private void salida() {
-        logDerivacion.add("<Sentencia> -> Salida");
         consumir("MOSTRAR");
+        log("Expresión a imprimir:");
         expresion();
         consumir(";");
     }
 
     private void asignacion() {
-        logDerivacion.add("<Sentencia> -> Asignación");
+        String id = tokenActual().getLexema();
         consumir("IDENTIFICADOR");
         consumir("="); 
+        log("Asignando valor a: " + id);
         expresion();
         consumir(";");
     }
 
     private void condicion() {
         expresion();
-        if (esOperadorRelacional(tokenActual().getLexema())) {
-            consumir(tokenActual().getLexema());
+        String op = tokenActual().getLexema();
+        if (esOperadorRelacional(op)) {
+            log("Operador: " + op);
+            consumir(op);
             expresion();
         } else {
-            throw error("Se esperaba operador relacional (==, >, <), hallado: " + tokenActual().getLexema(), 206);
+            throw error("Se esperaba operador relacional, hallado: " + op, 206);
         }
     }
 
-    // --- REGLAS PARA EXPRESIONES ARITMÉTICAS ---
+    // --- EXPRESIONES ARITMÉTICAS ---
+    // Mantenemos esto simple en el log para no saturar con demasiados detalles matemáticos
     
     private void expresion() {
         termino();
@@ -283,6 +289,7 @@ public class AnalizadorSintactico {
         String tipo = tokenActual().getTipoToken();
 
         if (esPropiedad(lexema)) {
+            log("Propiedad: " + lexema);
             consumir(lexema);
             consumir("EN");
             consumir("IDENTIFICADOR");
@@ -295,26 +302,18 @@ public class AnalizadorSintactico {
         else if (tipo.equals("IDENTIFICADOR")) {
             consumir("IDENTIFICADOR");
         }
-        else if (tipo.equals("LITERAL_NUMERICA")) {
-            consumir("LITERAL_NUMERICA");
-        }
-        else if (tipo.equals("LITERAL_CADENA")) {
-            consumir("LITERAL_CADENA");
+        else if (tipo.equals("LITERAL_NUMERICA") || tipo.equals("LITERAL_CADENA")) {
+            consumir(tipo);
         }
         else {
-            throw error("Expresión inválida. Se esperaba valor, ID o propiedad. Encontrado: " + lexema, 207);
+            throw error("Factor inválido en expresión: " + lexema, 207);
         }
     }
 
     // =========================================================================
-    // ======================== MÉTODOS AUXILIARES (CORE DEL PARSER) ===========
+    // ======================== MÉTODOS AUXILIARES CORE ========================
     // =========================================================================
 
-    /**
-      Verifica que el token actual coincida con el esperado y avanza el puntero.
-      Si no coincide, lanza una excepción (Error Sintáctico).
-      @param expected Lexema o Tipo de token esperado.
-     */
     private void consumir(String expected) {
         if (esFin()) {
             throw error("Final inesperado. Se esperaba: " + expected, 299);
@@ -331,31 +330,23 @@ public class AnalizadorSintactico {
         if (match) {
             avanzar();
         } else {
-            // Lógica de autodetección de código de error para mensajes más precisos
-            int codigoError = 203; // Código genérico
-            
-            if (expected.equals(";")) codigoError = 201;      // Falta punto y coma
-            else if (expected.equals("}")) codigoError = 202; // Falta cierre de bloque
-            else if (expected.equals(")")) codigoError = 202; // Falta paréntesis
-            else if (expected.equals("EN")) codigoError = 205;// Falta palabra reservada EN
-            else if (expected.equals("IDENTIFICADOR")) codigoError = 208; // Falta ID
+            int codigoError = 203; 
+            if (expected.equals(";")) codigoError = 201;
+            else if (expected.equals("}")) codigoError = 202; 
+            else if (expected.equals(")")) codigoError = 202; 
+            else if (expected.equals("EN")) codigoError = 205;
+            else if (expected.equals("IDENTIFICADOR")) codigoError = 208;
 
             throw error("Se esperaba '" + expected + "', se encontró '" + t.getLexema() + "'", codigoError);
         }
     }
 
-    /*
-      Verifica el token actual sin consumirlo (Lookahead).
-     */
     private boolean check(String expected) {
         if (esFin()) return false;
         Token t = tokenActual();
         return t.getLexema().equalsIgnoreCase(expected) || t.getTipoToken().equals(expected);
     }
     
-    /*
-      Si el token actual coincide, lo consume y retorna true. Si no, retorna false.
-     */
     private boolean match(String expected) {
         if (check(expected)) {
             avanzar();
@@ -377,45 +368,30 @@ public class AnalizadorSintactico {
         return actual >= tokens.length;
     }
 
-    /*
-      Genera la excepción de error sintáctico con formato estándar DSL(id).
-     */
     private ParserException error(String mensaje, int codigo) {
         int linea = esFin() ? tokens[tokens.length-1].getLinea() : tokenActual().getLinea();
-        // Formato estandarizado: "DSL(201) [Línea 5]: Mensaje..."
         return new ParserException("DSL(" + codigo + ") [Línea " + linea + "]: " + mensaje);
     }
 
-    /*
-      Algoritmo de recuperación "Modo Pánico".
-      Avanza tokens ciegamente hasta encontrar un punto de sincronización seguro
-      (un punto y coma o una llave de cierre) para intentar retomar el análisis.
-     */
     private void sincronizar() {
-        logDerivacion.add("   >> RECUPERANDO... (Buscando ';' o cierre de bloque)");
+        log(">> ERROR DETECTADO - RECUPERANDO MODO PÁNICO... <<");
         
-        // Evitar bucle si ya estamos sobre un sincronizador
         if (check(";") || check("}")) avanzar();
         
         while (!esFin()) {
             String lexema = tokenActual().getLexema();
-            
-            // Puntos de sincronización fuertes
             if (lexema.equals(";")) { avanzar(); return; }
-            if (lexema.equals("}")) { return; } // No consumir }, dejar que el bloque superior lo maneje
+            if (lexema.equals("}")) { return; } 
             
-            // Heurística: Si encontramos el inicio de una nueva sentencia, asumimos que el error terminó
             String lexUpper = lexema.toUpperCase();
-            if (Set.of("CREAR", "IF", "MOSTRAR", "INSERTAR", "APILAR", "ELIMINAR", "WHILE").contains(lexUpper)) {
+            if (Set.of("CREAR", "IF", "MOSTRAR", "INSERTAR", "APILAR", "ELIMINAR").contains(lexUpper)) {
                 return;
             }
             avanzar();
         }
     }
 
-    // --- CONJUNTOS DE VALIDACIÓN (SETS AUXILIARES) ---
-    // Usamos Sets para búsquedas O(1) rápidas al validar tipos o verbos
-    
+    // --- CONJUNTOS DE VALIDACIÓN ---
     private boolean esTipoEstructura(String s) {
         return Set.of("PILA", "COLA", "BICOLA", "LISTA_ENLAZADA", "LISTA_CIRCULAR", 
                       "ARBOL_BINARIO", "TABLA_HASH", "GRAFO", "PILA_CIRCULAR").contains(s);

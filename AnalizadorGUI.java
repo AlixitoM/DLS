@@ -66,8 +66,8 @@ public class AnalizadorGUI extends JFrame {
         
         txtEntrada = new JTextPane();
         txtEntrada.setFont(new Font("Consolas", Font.PLAIN, 14));
-        // Texto de ejemplo actualizado a la nueva gramática
-        txtEntrada.setText("// Ejemplo de DSL\nCREAR PILA miPila;\nAPILAR 10 EN miPila;\nAPILAR 20 EN miPila;\n\nIF (TOPE EN miPila > 15) {\n    MOSTRAR \"Es mayor\";\n    ELIMINAR EN miPila;\n} ELSE {\n    MOSTRAR \"Es menor\";\n}");
+        // Texto de ejemplo para probar la indentación
+        txtEntrada.setText("// Ejemplo de DSL con Jerarquía\nCREAR PILA miPila;\nAPILAR 10 EN miPila;\n\nIF (TOPE EN miPila > 15) {\n    MOSTRAR \"Es mayor\";\n    ELIMINAR EN miPila;\n} ELSE {\n    MOSTRAR \"Es menor\";\n}");
         
         doc = txtEntrada.getStyledDocument(); 
         
@@ -124,10 +124,9 @@ public class AnalizadorGUI extends JFrame {
         txtSintactico.setFont(new Font("Consolas", Font.PLAIN, 12));
         txtSintactico.setForeground(new Color(40, 40, 40));
         JScrollPane scrollSintactico = new JScrollPane(txtSintactico);
-        pestañas.addTab("Árbol de Derivación (Sintaxis)", scrollSintactico);
+        pestañas.addTab("Reporte Estructurado (Árbol)", scrollSintactico);
 
         // --- 3. PANEL INFERIOR: Lista de Errores ---
-        // Columnas estilo IDE: Línea | Tipo | Descripción
         String[] colsErrores = {"Línea", "Tipo", "Descripción del Error"};
         modeloErrores = new DefaultTableModel(colsErrores, 0) {
             @Override
@@ -333,11 +332,11 @@ public class AnalizadorGUI extends JFrame {
                 AnalizadorSintactico sintactico = new AnalizadorSintactico(arrayTokensValidos);
                 sintactico.analizar(); 
 
-                // A. Mostrar el árbol de derivación
+                // A. Mostrar el árbol de derivación (Con la nueva lógica jerárquica)
                 List<String> log = sintactico.getLogDerivacion();
                 StringBuilder sb = new StringBuilder();
                 for (String paso : log) {
-                    sb.append(paso).append("\n");
+                    sb.append(paso).append("\n"); // Aquí se imprimen las líneas ya indentadas
                 }
                 txtSintactico.setText(sb.toString());
                 txtSintactico.setCaretPosition(0); 
@@ -359,8 +358,7 @@ public class AnalizadorGUI extends JFrame {
                                 linea = Integer.parseInt(numStr.trim());
                             }
                             
-                            // Limpiar descripción para la tabla (quitar la parte de [Línea X])
-                            // Pero mantenemos el DSL(id)
+                            // Limpiar descripción para la tabla
                             if (errStr.contains("]: ")) {
                                 String idPart = errStr.substring(0, errStr.indexOf("[")); // "DSL(201) "
                                 String msgPart = errStr.substring(errStr.indexOf("]: ") + 3); // "Mensaje"
@@ -384,7 +382,7 @@ public class AnalizadorGUI extends JFrame {
                 modeloErrores.addRow(new Object[]{
                     (err.linea > 0 ? err.linea : "-"), 
                     err.tipo, 
-                    err.descripcion // Ahora contiene DSL(id)
+                    err.descripcion 
                 });
             }
 
@@ -405,7 +403,7 @@ public class AnalizadorGUI extends JFrame {
     }
 
     public static void main(String[] args) {
-        // Look and Feel nativo para que se vea moderno
+        // Look and Feel nativo
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (Exception ignored) {}
