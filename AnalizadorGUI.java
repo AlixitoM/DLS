@@ -4,6 +4,8 @@ import javax.swing.text.*;
 import javax.swing.event.DocumentEvent; 
 import javax.swing.event.DocumentListener; 
 import java.awt.*;
+import java.awt.event.KeyEvent; // Necesario para los atajos de teclado
+import java.awt.event.InputEvent; // Necesario para la tecla CTRL
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -54,19 +56,57 @@ public class AnalizadorGUI extends JFrame {
 
     public AnalizadorGUI() {
         // Configuración de la Ventana Principal
-        setTitle("Compilador DSLabstrae - Léxico y Sintáctico (Integrado)");
+        setTitle("Compilador DSLabstrae - IDE");
         setSize(1200, 800);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(10, 10));
 
-        // --- 1. PANEL SUPERIOR: Código Fuente y Botón ---
+        // =======================================================
+        // --- 1. BARRA DE MENÚ SUPERIOR (Estilo VS Code) ---
+        // =======================================================
+        JMenuBar barraMenu = new JMenuBar();
+
+        // --- Menú Archivo ---
+        JMenu menuArchivo = new JMenu("Archivo");
+        JMenuItem itemSalir = new JMenuItem("Salir");
+        itemSalir.addActionListener(e -> System.exit(0));
+        menuArchivo.add(itemSalir);
+
+        // --- Menú Referencias (Lo que pediste) ---
+        JMenu menuReferencias = new JMenu("Referencias");
+        
+        // Opción: Tabla de Símbolos
+        JMenuItem itemTabla = new JMenuItem("Tabla de Símbolos (Léxico)");
+        // Atajo: Ctrl + T
+        itemTabla.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_T, InputEvent.CTRL_DOWN_MASK));
+        itemTabla.addActionListener(e -> VentanaReferencia.mostrarTablaSimbolos());
+
+        // Opción: Gramáticas
+        JMenuItem itemGramatica = new JMenuItem("Gramática BNF (Sintáctico)");
+        // Atajo: Ctrl + G
+        itemGramatica.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_G, InputEvent.CTRL_DOWN_MASK));
+        itemGramatica.addActionListener(e -> VentanaReferencia.mostrarGramatica());
+
+        menuReferencias.add(itemTabla);
+        menuReferencias.addSeparator(); // Línea separadora estética
+        menuReferencias.add(itemGramatica);
+
+        // Agregar menús a la barra
+        barraMenu.add(menuArchivo);
+        barraMenu.add(menuReferencias);
+
+        // Asignar la barra al JFrame
+        setJMenuBar(barraMenu);
+        // =======================================================
+
+
+        // --- 2. PANEL EDITOR: Código Fuente y Botón ---
         JPanel panelCodigo = new JPanel(new BorderLayout(5, 5));
         panelCodigo.setBorder(BorderFactory.createTitledBorder(" Editor de Código DSL "));
         
         txtEntrada = new JTextPane();
         txtEntrada.setFont(new Font("Consolas", Font.PLAIN, 14));
-        // Texto de ejemplo para probar la indentación
         txtEntrada.setText("// Ejemplo de DSL con Jerarquía\nCREAR PILA miPila;\nAPILAR 10 EN miPila;\n\nIF (TOPE EN miPila > 15) {\n    MOSTRAR \"Es mayor\";\n    ELIMINAR EN miPila;\n} ELSE {\n    MOSTRAR \"Es menor\";\n}");
         
         doc = txtEntrada.getStyledDocument(); 
@@ -83,7 +123,8 @@ public class AnalizadorGUI extends JFrame {
         scrollCodigo.setRowHeaderView(txtNumerosLineas);
         scrollCodigo.setPreferredSize(new Dimension(1000, 200));
         
-        JButton btnAnalizar = new JButton("Compilar (Analizar)");
+        // Botón de Análisis
+        JButton btnAnalizar = new JButton("Compilar / Ejecutar");
         btnAnalizar.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btnAnalizar.setForeground(Color.WHITE);
         btnAnalizar.setBackground(new Color(0, 120, 215)); 
@@ -92,6 +133,7 @@ public class AnalizadorGUI extends JFrame {
         btnAnalizar.setCursor(new Cursor(Cursor.HAND_CURSOR)); 
         btnAnalizar.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
 
+        // Efecto Hover simple
         btnAnalizar.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent evt) {
                 btnAnalizar.setBackground(new Color(0, 90, 170)); 
@@ -104,7 +146,7 @@ public class AnalizadorGUI extends JFrame {
         panelCodigo.add(scrollCodigo, BorderLayout.CENTER);
         panelCodigo.add(btnAnalizar, BorderLayout.EAST);
 
-        // --- 2. PANEL CENTRAL: Pestañas de Resultados ---
+        // --- 3. PANEL CENTRAL: Pestañas de Resultados ---
         JTabbedPane pestañas = new JTabbedPane();
 
         // Pestaña A: Tabla de Símbolos (Léxico)
@@ -126,7 +168,7 @@ public class AnalizadorGUI extends JFrame {
         JScrollPane scrollSintactico = new JScrollPane(txtSintactico);
         pestañas.addTab("Reporte Estructurado (Árbol)", scrollSintactico);
 
-        // --- 3. PANEL INFERIOR: Lista de Errores ---
+        // --- 4. PANEL INFERIOR: Lista de Errores ---
         String[] colsErrores = {"Línea", "Tipo", "Descripción del Error"};
         modeloErrores = new DefaultTableModel(colsErrores, 0) {
             @Override
@@ -332,16 +374,16 @@ public class AnalizadorGUI extends JFrame {
                 AnalizadorSintactico sintactico = new AnalizadorSintactico(arrayTokensValidos);
                 sintactico.analizar(); 
 
-                // A. Mostrar el árbol de derivación (Con la nueva lógica jerárquica)
+                // A. Mostrar el árbol de derivación
                 List<String> log = sintactico.getLogDerivacion();
                 StringBuilder sb = new StringBuilder();
                 for (String paso : log) {
-                    sb.append(paso).append("\n"); // Aquí se imprimen las líneas ya indentadas
+                    sb.append(paso).append("\n"); 
                 }
                 txtSintactico.setText(sb.toString());
                 txtSintactico.setCaretPosition(0); 
 
-                // B. Procesar Errores Sintácticos (Que ya traen el ID desde el Parser)
+                // B. Procesar Errores Sintácticos
                 List<String> erroresSin = sintactico.getErrores();
                 for (String errStr : erroresSin) {
                     int linea = 0;

@@ -387,4 +387,8 @@ public class AFD {
         // ERROR C: Token malformado (ej. 234Inválido, secuencia inválida larga)
         return "ERROR_TOKEN_MALFORMADO";
     }
+
+    public static Map<String, String> getPalabrasReservadas() {
+    return TIPO_POR_PR;
+}
 }

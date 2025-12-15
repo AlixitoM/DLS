@@ -424,7 +424,7 @@ public class AnalizadorSintactico {
     // -------------------------------------------------------------------------
 
     private boolean esTipoEstructura(String s) {
-        return Set.of("PILA", "COLA", "BICOLA", "LISTA_ENLAZADA", "LISTA_CIRCULAR", 
+        return Set.of("PILA", "COLA", "BICOLA", "LISTA_ENLAZADA", "LISTA_CIRCULAR","LISTA_DOBLE_ENLAZADA",
                       "ARBOL_BINARIO", "TABLA_HASH", "GRAFO", "PILA_CIRCULAR").contains(s);
     }
 
