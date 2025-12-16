@@ -28,7 +28,7 @@ public class AnalizadorGUI extends JFrame {
     private DefaultTableModel modeloErrores;
     private JLabel lblResumen;
 
-    // --- Estilos y Colores ---
+// colores de los tipos de tokens
     private Style normal;
     private Style reservada;
     private Style numero;
@@ -38,80 +38,103 @@ public class AnalizadorGUI extends JFrame {
     private Style estructuraDato;
     private Style cadenaStyle;
     
-    // --- Control de Coloreado ---
+    // atributos para el manejo del coloreado
     private Timer timerColoreo;
     private boolean coloreando = false;
 
-    // Definimos las palabras para colorear (Visual solamente)
-    private static final Set<String> PALABRAS_RESERVADAS = Set.of(
-        "CREAR", "INSERTAR", "APILAR", "ENCOLAR", "MOSTRAR", "IF", "ELSE", 
-        "ELIMINAR", "BUSCAR", "EN", "CON", "VALOR", "PUSH", "POP", "DEQUEUE", "ENQUEUE",
-        "TOPE", "FRENTE", "TAMANO", "VACIAT"
-    );
+    // Definimos las palabras para colorear 
+  private static final Set<String> PALABRAS_RESERVADAS = Set.of(
+    // 1. Palabras clave de Control y Estructura (Del Analizador Sintáctico)
+    "CREAR",
+    "IF",
+    "ELSE",
+    "MOSTRAR", 
+
+    "INSERTAR", "INSERTAR_FINAL", "INSERTAR_INICIO", "INSERTAR_EN_POSICION", 
+    "INSERTARIZQUIERDA", "INSERTARDERECHA", "AGREGARNODO", 
     
+    "APILAR", "ENCOLAR", "PUSH", "ENQUEUE", 
+
+    "ELIMINAR", "ELIMINAR_INICIO", "ELIMINAR_FINAL", 
+    "ELIMINAR_FRENTE", "ELIMINAR_POSICION", "ELIMINARNODO", 
+    
+    "DESAPILAR", "POP", "DESENCOLAR", "DEQUEUE",
+    
+    "BUSCAR", 
+    "RECORRER", "RECORRERADELANTE", "RECORRERATRAS",
+    "PREORDEN", "INORDEN", "POSTORDEN", "RECORRIDOPORNIVELES", 
+
+    // 3. Palabras clave para Grafos
+    "BFS", "DFS", "AGREGARARISTA", "ELIMINARARISTA", "CAMINOCORTO",
+    
+
+    "EN", 
+  
+ 
+    "PESO",
+    "ACTUALIZAR",
+    "REHASH", 
+    "VACIA", 
+    
+ 
+    "TOPE", "FRENTE", "FRONT", "PEEK", "VERFILA", "CLAVE", 
+    "TAMANO", "ALTURA", "HOJAS", "NODOS", "VECINOS", "LLENAT" // Añadidas de tu esPropiedad
+);
+    // palabras que se pintaran de naranja 
     private static final Set<String> ESTRUCTURAS_DATOS = Set.of(
         "PILA", "COLA", "BICOLA", "LISTA_ENLAZADA", "LISTA_CIRCULAR", 
         "ARBOL_BINARIO", "TABLA_HASH", "GRAFO", "PILA_CIRCULAR"
     );
 
+    
+    // constructor de la clase 
     public AnalizadorGUI() {
-        // Configuración de la Ventana Principal
-        setTitle("Compilador DSLabstrae - IDE");
+      
+      
         setSize(1200, 800);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(10, 10));
 
-        // =======================================================
-        // --- 1. BARRA DE MENÚ SUPERIOR (Estilo VS Code) ---
-        // =======================================================
         JMenuBar barraMenu = new JMenuBar();
 
-        // --- Menú Archivo ---
+        
         JMenu menuArchivo = new JMenu("Archivo");
         JMenuItem itemSalir = new JMenuItem("Salir");
         itemSalir.addActionListener(e -> System.exit(0));
         menuArchivo.add(itemSalir);
 
-        // --- Menú Referencias (Lo que pediste) ---
+
         JMenu menuReferencias = new JMenu("Referencias");
         
-        // Opción: Tabla de Símbolos
         JMenuItem itemTabla = new JMenuItem("Tabla de Símbolos (Léxico)");
-        // Atajo: Ctrl + T
         itemTabla.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_T, InputEvent.CTRL_DOWN_MASK));
         itemTabla.addActionListener(e -> VentanaReferencia.mostrarTablaSimbolos());
 
-        // Opción: Gramáticas
         JMenuItem itemGramatica = new JMenuItem("Gramática BNF (Sintáctico)");
-        // Atajo: Ctrl + G
         itemGramatica.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_G, InputEvent.CTRL_DOWN_MASK));
         itemGramatica.addActionListener(e -> VentanaReferencia.mostrarGramatica());
 
         menuReferencias.add(itemTabla);
-        menuReferencias.addSeparator(); // Línea separadora estética
+        menuReferencias.addSeparator(); 
         menuReferencias.add(itemGramatica);
 
-        // Agregar menús a la barra
         barraMenu.add(menuArchivo);
         barraMenu.add(menuReferencias);
 
-        // Asignar la barra al JFrame
         setJMenuBar(barraMenu);
-        // =======================================================
 
 
-        // --- 2. PANEL EDITOR: Código Fuente y Botón ---
         JPanel panelCodigo = new JPanel(new BorderLayout(5, 5));
         panelCodigo.setBorder(BorderFactory.createTitledBorder(" Editor de Código DSL "));
         
         txtEntrada = new JTextPane();
         txtEntrada.setFont(new Font("Consolas", Font.PLAIN, 14));
-        txtEntrada.setText("// Ejemplo de DSL con Jerarquía\nCREAR PILA miPila;\nAPILAR 10 EN miPila;\n\nIF (TOPE EN miPila > 15) {\n    MOSTRAR \"Es mayor\";\n    ELIMINAR EN miPila;\n} ELSE {\n    MOSTRAR \"Es menor\";\n}");
+        txtEntrada.setText("// Ejemplo de codigo \nCREAR PILA miPila;\nAPILAR 10 EN miPila;\n\nIF (TOPE EN miPila > 15) {\n    MOSTRAR \"Es mayor\";\n    ELIMINAR EN miPila;\n} ELSE {\n    MOSTRAR \"Es menor\";\n}");
         
         doc = txtEntrada.getStyledDocument(); 
         
-        // Configuración del Área de Números de Línea
+        // Configur
         txtNumerosLineas = new JTextArea("1");
         txtNumerosLineas.setFont(new Font("Consolas", Font.PLAIN, 14));
         txtNumerosLineas.setBackground(new Color(230, 230, 230));
@@ -133,7 +156,8 @@ public class AnalizadorGUI extends JFrame {
         btnAnalizar.setCursor(new Cursor(Cursor.HAND_CURSOR)); 
         btnAnalizar.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
 
-        // Efecto Hover simple
+
+       // manejador de eventos para que el boton de analizar cambie de color ligeramente 
         btnAnalizar.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent evt) {
                 btnAnalizar.setBackground(new Color(0, 90, 170)); 
@@ -202,11 +226,11 @@ public class AnalizadorGUI extends JFrame {
         add(lblResumen, BorderLayout.SOUTH);
 
         // --- ACCIÓN DEL BOTÓN ---
-        btnAnalizar.addActionListener(e -> ejecutarAnalisis());
+        btnAnalizar.addActionListener(e -> Analisis());
 
         // --- INICIALIZAR LÓGICA DE COLORES Y NÚMEROS ---
         inicializarEstilos();
-        habilitarColoreadoTiempoReal();
+        Coloreado();
         colorearTexto(); // Coloreada inicial
         actualizarNumerosDeLinea(); // Actualización inicial de números
     }
@@ -304,7 +328,7 @@ public class AnalizadorGUI extends JFrame {
         });
     }
 
-    private void habilitarColoreadoTiempoReal() {
+    private void Coloreado() {
         timerColoreo = new Timer(300, e -> colorearTexto());
         timerColoreo.setRepeats(false);
 
@@ -321,10 +345,7 @@ public class AnalizadorGUI extends JFrame {
         });
     }
 
-    // ========================================================================
-    // ======================= LÓGICA DE ANÁLISIS =============================
-    // ========================================================================
-    private void ejecutarAnalisis() {
+    private void Analisis() {
         String codigo = txtEntrada.getText();
         
         // 1. Limpiar resultados anteriores
@@ -339,8 +360,10 @@ public class AnalizadorGUI extends JFrame {
         try {
             // --- FASE 1: ANÁLISIS LÉXICO (Tokenización y AFD) ---
             Token[] tokens = DSLCore.tokenizador(codigo);
-            AFD afd = DSLCore.obtenerInstanciaAFD();
-            Token[] resultadosLexicos = afd.aceptar(tokens);
+            AFD auto =new AFD
+        (DSLCore.getEstadosAceptacionDSL(),DSLCore.getAlfabetoDSL(),DSLCore.getTransicionesDSL(),"INICIO",DSLCore.getEstadosAceptacionDSL());
+
+            Token[] resultadosLexicos = auto.aceptar(tokens);
 
             List<Token> tokensValidos = new ArrayList<>();
 
@@ -375,7 +398,7 @@ public class AnalizadorGUI extends JFrame {
                 sintactico.analizar(); 
 
                 // A. Mostrar el árbol de derivación
-                List<String> log = sintactico.getLogDerivacion();
+                List<String> log = sintactico.getArbolDerivacion();
                 StringBuilder sb = new StringBuilder();
                 for (String paso : log) {
                     sb.append(paso).append("\n"); 
@@ -417,7 +440,6 @@ public class AnalizadorGUI extends JFrame {
                 txtSintactico.setText("No hay tokens válidos para analizar sintácticamente.");
             }
 
-            // --- FASE 3: ORDENAR Y MOSTRAR ERRORES ---
             Collections.sort(listaErroresUnificada);
 
             for (ErrorReporte err : listaErroresUnificada) {
@@ -428,13 +450,14 @@ public class AnalizadorGUI extends JFrame {
                 });
             }
 
-            // --- RESUMEN FINAL ---
+
+                // glosario de errores
             int totalErrores = listaErroresUnificada.size();
             if (totalErrores == 0) {
-                lblResumen.setText(" ✓ Análisis Finalizado con ÉXITO. El código es correcto.");
+                lblResumen.setText("  Análisis Finalizado con ÉXITO. El código es correcto.");
                 lblResumen.setForeground(new Color(0, 128, 0)); 
             } else {
-                lblResumen.setText(" ⚠ Se encontraron " + totalErrores + " errores.");
+                lblResumen.setText("  Se encontraron " + totalErrores + " errores.");
                 lblResumen.setForeground(Color.RED);
             }
 
@@ -453,7 +476,6 @@ public class AnalizadorGUI extends JFrame {
         SwingUtilities.invokeLater(() -> new AnalizadorGUI().setVisible(true));
     }
 
-    // --- CLASE INTERNA PARA GESTIÓN DE ERRORES ---
     private static class ErrorReporte implements Comparable<ErrorReporte> {
         int linea;
         String tipo;
