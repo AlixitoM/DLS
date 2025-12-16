@@ -130,10 +130,10 @@ public class DSLCore {
         cualquier otra cosa 
          */
         String regex = "(//.*)|"
-                + "(\"[^\"]*\")|"
-                + "(==|!=|<=|>=|&&|\\|\\|)|"
-                + "([\\Q(){}[]|,;=+-*/<>\u0021&|.\\E])|"
-                + "([^\\s\\Q(){}[]|,;=+-*/<>\u0021&|.\\E\"]+)";
+        + "(\"[^\"]*\"|\"[^\"]*)|" // <--- CAMBIO AQUÍ: Agregamos la opción de comilla abierta
+        + "(==|!=|<=|>=|&&|\\|\\|)|"
+        + "([\\Q(){}[]|,;=+-*/<>\u0021&|.\\E])|"
+        + "([^\\s\\Q(){}[]|,;=+-*/<>\u0021&|.\\E\"]+)";
         // convertimos la regex en un patron para que se más rapido de ejecutrar
         java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(regex);
 
