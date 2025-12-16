@@ -1,27 +1,28 @@
+
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
-import javax.swing.text.*; 
-import javax.swing.event.DocumentEvent; 
-import javax.swing.event.DocumentListener; 
+import javax.swing.text.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.awt.event.KeyEvent; // Necesario para los atajos de teclado
 import java.awt.event.InputEvent; // Necesario para la tecla CTRL
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Set; 
-import java.util.regex.Matcher; 
-import java.util.regex.Pattern; 
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class AnalizadorGUI extends JFrame {
 
     // --- Componentes de la Interfaz ---
-    private JTextPane txtEntrada;         
-    private JTextArea txtNumerosLineas;   
-    private StyledDocument doc;           
-    private JTextArea txtSintactico;      
-    private JTable tablaSimbolos;         
-    private JTable tablaErrores;          
+    private JTextPane txtEntrada;
+    private JTextArea txtNumerosLineas;
+    private StyledDocument doc;
+    private JTextArea txtSintactico;
+    private JTable tablaSimbolos;
+    private JTable tablaErrores;
 
     // --- Modelos de datos ---
     private DefaultTableModel modeloSimbolos;
@@ -37,60 +38,48 @@ public class AnalizadorGUI extends JFrame {
     private Style verdeComentario;
     private Style estructuraDato;
     private Style cadenaStyle;
-    
+
     // atributos para el manejo del coloreado
     private Timer timerColoreo;
     private boolean coloreando = false;
 
     // Definimos las palabras para colorear 
-  private static final Set<String> PALABRAS_RESERVADAS = Set.of(
-    // 1. Palabras clave de Control y Estructura (Del Analizador Sintáctico)
-    "CREAR",
-    "IF",
-    "ELSE",
-    "MOSTRAR", 
-
-    "INSERTAR", "INSERTAR_FINAL", "INSERTAR_INICIO", "INSERTAR_EN_POSICION", 
-    "INSERTARIZQUIERDA", "INSERTARDERECHA", "AGREGARNODO", 
-    
-    "APILAR", "ENCOLAR", "PUSH", "ENQUEUE", 
-
-    "ELIMINAR", "ELIMINAR_INICIO", "ELIMINAR_FINAL", 
-    "ELIMINAR_FRENTE", "ELIMINAR_POSICION", "ELIMINARNODO", 
-    
-    "DESAPILAR", "POP", "DESENCOLAR", "DEQUEUE",
-    
-    "BUSCAR", 
-    "RECORRER", "RECORRERADELANTE", "RECORRERATRAS",
-    "PREORDEN", "INORDEN", "POSTORDEN", "RECORRIDOPORNIVELES", 
-
-    // 3. Palabras clave para Grafos
-    "BFS", "DFS", "AGREGARARISTA", "ELIMINARARISTA", "CAMINOCORTO",
-    
-
-    "EN", 
-  
- 
-    "PESO",
-    "ACTUALIZAR",
-    "REHASH", 
-    "VACIA", 
-    
- 
-    "TOPE", "FRENTE", "FRONT", "PEEK", "VERFILA", "CLAVE", 
-    "TAMANO", "ALTURA", "HOJAS", "NODOS", "VECINOS", "LLENAT" // Añadidas de tu esPropiedad
-);
+    private static final Set<String> PALABRAS_RESERVADAS = Set.of(
+            // 1. Palabras clave de Control y Estructura (Del Analizador Sintáctico)
+            "CREAR",
+            "IF",
+            "ELSE",
+            "MOSTRAR",
+            "INSERTAR", "INSERTAR_FINAL", "INSERTAR_INICIO", "INSERTAR_EN_POSICION",
+            "INSERTARIZQUIERDA", "INSERTARDERECHA", "AGREGARNODO",
+            "APILAR", "ENCOLAR", "PUSH", "ENQUEUE",
+            "ELIMINAR", "ELIMINAR_INICIO", "ELIMINAR_FINAL",
+            "ELIMINAR_FRENTE", "ELIMINAR_POSICION", "ELIMINARNODO",
+            "DESAPILAR", "POP", "DESENCOLAR", "DEQUEUE",
+            "BUSCAR",
+            "RECORRER", "RECORRERADELANTE", "RECORRERATRAS",
+            "PREORDEN", "INORDEN", "POSTORDEN", "RECORRIDOPORNIVELES",
+            // 3. Palabras clave para Grafos
+            "BFS", "DFS", "AGREGARARISTA", "ELIMINARARISTA", "CAMINOCORTO",
+            "EN",
+            "PESO",
+            "ACTUALIZAR",
+            "REHASH",
+            "VACIA",
+            "TOPE", "FRENTE", "FRONT", "PEEK", "VERFILA", "CLAVE",
+            "TAMANO", "ALTURA", "HOJAS", "NODOS", "VECINOS", "LLENA",
+            "NUMERO", "TEXTO"
+    // Añadidas de tu esPropiedad
+    );
     // palabras que se pintaran de naranja 
     private static final Set<String> ESTRUCTURAS_DATOS = Set.of(
-        "PILA", "COLA", "BICOLA", "LISTA_ENLAZADA", "LISTA_CIRCULAR", 
-        "ARBOL_BINARIO", "TABLA_HASH", "GRAFO", "PILA_CIRCULAR"
+            "PILA", "COLA", "BICOLA", "LISTA_ENLAZADA", "LISTA_CIRCULAR",
+            "ARBOL_BINARIO", "TABLA_HASH", "GRAFO", "PILA_CIRCULAR"
     );
 
-    
     // constructor de la clase 
     public AnalizadorGUI() {
-      
-      
+
         setSize(1200, 800);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
@@ -98,16 +87,23 @@ public class AnalizadorGUI extends JFrame {
 
         JMenuBar barraMenu = new JMenuBar();
 
-        
         JMenu menuArchivo = new JMenu("Archivo");
         JMenuItem itemSalir = new JMenuItem("Salir");
         itemSalir.addActionListener(e -> System.exit(0));
         menuArchivo.add(itemSalir);
 
-
         JMenu menuReferencias = new JMenu("Referencias");
-        
+
         JMenuItem itemTabla = new JMenuItem("Tabla de Símbolos (Léxico)");
+    
+
+// --- OPCIÓN ABRIR ---
+        JMenuItem itemAbrir = new JMenuItem("Abrir archivo (.txt)");
+        itemAbrir.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK));
+        itemAbrir.addActionListener(e -> abrirArchivo()); // Llamamos al método que crearemos
+        menuArchivo.add(itemAbrir);
+
+
         itemTabla.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_T, InputEvent.CTRL_DOWN_MASK));
         itemTabla.addActionListener(e -> VentanaReferencia.mostrarTablaSimbolos());
 
@@ -116,7 +112,7 @@ public class AnalizadorGUI extends JFrame {
         itemGramatica.addActionListener(e -> VentanaReferencia.mostrarGramatica());
 
         menuReferencias.add(itemTabla);
-        menuReferencias.addSeparator(); 
+        menuReferencias.addSeparator();
         menuReferencias.add(itemGramatica);
 
         barraMenu.add(menuArchivo);
@@ -124,16 +120,15 @@ public class AnalizadorGUI extends JFrame {
 
         setJMenuBar(barraMenu);
 
-
         JPanel panelCodigo = new JPanel(new BorderLayout(5, 5));
         panelCodigo.setBorder(BorderFactory.createTitledBorder(" Editor de Código DSL "));
-        
+
         txtEntrada = new JTextPane();
         txtEntrada.setFont(new Font("Consolas", Font.PLAIN, 14));
         txtEntrada.setText("// Ejemplo de codigo \nCREAR PILA miPila;\nAPILAR 10 EN miPila;\n\nIF (TOPE EN miPila > 15) {\n    MOSTRAR \"Es mayor\";\n    ELIMINAR EN miPila;\n} ELSE {\n    MOSTRAR \"Es menor\";\n}");
-        
-        doc = txtEntrada.getStyledDocument(); 
-        
+
+        doc = txtEntrada.getStyledDocument();
+
         // Configur
         txtNumerosLineas = new JTextArea("1");
         txtNumerosLineas.setFont(new Font("Consolas", Font.PLAIN, 14));
@@ -145,39 +140,60 @@ public class AnalizadorGUI extends JFrame {
         JScrollPane scrollCodigo = new JScrollPane(txtEntrada);
         scrollCodigo.setRowHeaderView(txtNumerosLineas);
         scrollCodigo.setPreferredSize(new Dimension(1000, 200));
-        
+
         // Botón de Análisis
         JButton btnAnalizar = new JButton("Compilar / Ejecutar");
         btnAnalizar.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btnAnalizar.setForeground(Color.WHITE);
-        btnAnalizar.setBackground(new Color(0, 120, 215)); 
-        btnAnalizar.setFocusPainted(false);      
-        btnAnalizar.setBorderPainted(false);     
-        btnAnalizar.setCursor(new Cursor(Cursor.HAND_CURSOR)); 
+        btnAnalizar.setBackground(new Color(0, 120, 215));
+        btnAnalizar.setFocusPainted(false);
+        btnAnalizar.setBorderPainted(false);
+        btnAnalizar.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnAnalizar.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
 
-
-       // manejador de eventos para que el boton de analizar cambie de color ligeramente 
+        // manejador de eventos para que el boton de analizar cambie de color ligeramente 
         btnAnalizar.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent evt) {
-                btnAnalizar.setBackground(new Color(0, 90, 170)); 
+                btnAnalizar.setBackground(new Color(0, 90, 170));
             }
+
             public void mouseExited(java.awt.event.MouseEvent evt) {
-                btnAnalizar.setBackground(new Color(0, 120, 215)); 
+                btnAnalizar.setBackground(new Color(0, 120, 215));
             }
         });
-        
+
         panelCodigo.add(scrollCodigo, BorderLayout.CENTER);
         panelCodigo.add(btnAnalizar, BorderLayout.EAST);
 
         // --- 3. PANEL CENTRAL: Pestañas de Resultados ---
         JTabbedPane pestañas = new JTabbedPane();
+        // ... después de crear scrollSintactico ...
+
+// Pestaña C: Diccionario de Errores (NUEVA)
+        String[] colsDiccionario = {"Código", "Categoría", "Significado / Solución"};
+        DefaultTableModel modeloDic = new DefaultTableModel(getDatosDiccionario(), colsDiccionario) {
+            @Override
+            public boolean isCellEditable(int r, int c) {
+                return false;
+            }
+        };
+        JTable tablaDiccionario = new JTable(modeloDic);
+        tablaDiccionario.setRowHeight(25);
+        tablaDiccionario.getColumnModel().getColumn(0).setPreferredWidth(80);
+        tablaDiccionario.getColumnModel().getColumn(1).setPreferredWidth(100);
+        tablaDiccionario.getColumnModel().getColumn(2).setPreferredWidth(400);
+
+// Colorear el fondo de la tabla de referencia para distinguirla
+        tablaDiccionario.setBackground(new Color(245, 245, 250));
+        // Se añade como tercera pestaña
 
         // Pestaña A: Tabla de Símbolos (Léxico)
         String[] colsSimbolos = {"Lexema", "Línea", "Col", "Tipo Token", "Estado AFD"};
         modeloSimbolos = new DefaultTableModel(colsSimbolos, 0) {
             @Override
-            public boolean isCellEditable(int row, int col) { return false; }
+            public boolean isCellEditable(int row, int col) {
+                return false;
+            }
         };
         tablaSimbolos = new JTable(modeloSimbolos);
         tablaSimbolos.setFillsViewportHeight(true);
@@ -192,30 +208,35 @@ public class AnalizadorGUI extends JFrame {
         JScrollPane scrollSintactico = new JScrollPane(txtSintactico);
         pestañas.addTab("Reporte Estructurado (Árbol)", scrollSintactico);
 
+        JScrollPane scrollDiccionario = new JScrollPane(tablaDiccionario);
+        pestañas.addTab("Glosario de Errores", scrollDiccionario);
+
         // --- 4. PANEL INFERIOR: Lista de Errores ---
         String[] colsErrores = {"Línea", "Tipo", "Descripción del Error"};
         modeloErrores = new DefaultTableModel(colsErrores, 0) {
             @Override
-            public boolean isCellEditable(int row, int col) { return false; }
+            public boolean isCellEditable(int row, int col) {
+                return false;
+            }
         };
         tablaErrores = new JTable(modeloErrores);
         tablaErrores.setForeground(new Color(200, 0, 0)); // Rojo oscuro
         tablaErrores.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         tablaErrores.setRowHeight(20);
-        
+
         // Ajustar ancho de columnas de error
-        tablaErrores.getColumnModel().getColumn(0).setPreferredWidth(60);  
+        tablaErrores.getColumnModel().getColumn(0).setPreferredWidth(60);
         tablaErrores.getColumnModel().getColumn(0).setMaxWidth(80);
-        tablaErrores.getColumnModel().getColumn(1).setPreferredWidth(100); 
+        tablaErrores.getColumnModel().getColumn(1).setPreferredWidth(100);
         tablaErrores.getColumnModel().getColumn(1).setMaxWidth(150);
-        
+
         JScrollPane scrollErrores = new JScrollPane(tablaErrores);
         scrollErrores.setBorder(BorderFactory.createTitledBorder(" Consola de Problemas "));
         scrollErrores.setPreferredSize(new Dimension(1000, 180));
 
         // --- ORGANIZACIÓN FINAL ---
         JSplitPane splitCentral = new JSplitPane(JSplitPane.VERTICAL_SPLIT, pestañas, scrollErrores);
-        splitCentral.setResizeWeight(0.60); 
+        splitCentral.setResizeWeight(0.60);
 
         add(panelCodigo, BorderLayout.NORTH);
         add(splitCentral, BorderLayout.CENTER);
@@ -236,7 +257,7 @@ public class AnalizadorGUI extends JFrame {
     }
 
     private void actualizarNumerosDeLinea() {
-        int lineas = doc.getDefaultRootElement().getElementCount(); 
+        int lineas = doc.getDefaultRootElement().getElementCount();
         StringBuilder sb = new StringBuilder();
         for (int i = 1; i <= lineas; i++) {
             sb.append(i).append(System.lineSeparator());
@@ -250,11 +271,11 @@ public class AnalizadorGUI extends JFrame {
         StyleConstants.setForeground(normal, Color.BLACK);
 
         reservada = sc.addStyle("reservada", null);
-        StyleConstants.setForeground(reservada, new Color(0, 0, 180)); 
+        StyleConstants.setForeground(reservada, new Color(0, 0, 180));
         StyleConstants.setBold(reservada, true);
 
         numero = sc.addStyle("numero", null);
-        StyleConstants.setForeground(numero, new Color(150, 0, 150)); 
+        StyleConstants.setForeground(numero, new Color(150, 0, 150));
 
         operador = sc.addStyle("operador", null);
         StyleConstants.setForeground(operador, Color.DARK_GRAY);
@@ -263,19 +284,21 @@ public class AnalizadorGUI extends JFrame {
         StyleConstants.setForeground(errorStyle, Color.RED);
 
         verdeComentario = sc.addStyle("comentario", null);
-        StyleConstants.setForeground(verdeComentario, new Color(0, 128, 0)); 
+        StyleConstants.setForeground(verdeComentario, new Color(0, 128, 0));
         StyleConstants.setItalic(verdeComentario, true);
 
         estructuraDato = sc.addStyle("estructura", null);
-        StyleConstants.setForeground(estructuraDato, new Color(255, 140, 0)); 
+        StyleConstants.setForeground(estructuraDato, new Color(255, 140, 0));
         StyleConstants.setBold(estructuraDato, true);
-        
+
         cadenaStyle = sc.addStyle("cadena", null);
-        StyleConstants.setForeground(cadenaStyle, new Color(200, 20, 20)); 
+        StyleConstants.setForeground(cadenaStyle, new Color(200, 20, 20));
     }
 
     private void colorearTexto() {
-        if (coloreando) return;
+        if (coloreando) {
+            return;
+        }
         coloreando = true;
 
         SwingUtilities.invokeLater(() -> {
@@ -307,7 +330,7 @@ public class AnalizadorGUI extends JFrame {
                 while (m.find()) {
                     doc.setCharacterAttributes(m.start(), 1, operador, false);
                 }
-                
+
                 // 4. Cadenas
                 m = Pattern.compile("\"[^\"]*\"").matcher(texto);
                 while (m.find()) {
@@ -333,21 +356,24 @@ public class AnalizadorGUI extends JFrame {
         timerColoreo.setRepeats(false);
 
         txtEntrada.getDocument().addDocumentListener(new DocumentListener() {
-            public void insertUpdate(DocumentEvent e) { 
-                actualizarNumerosDeLinea(); 
-                timerColoreo.restart(); 
+            public void insertUpdate(DocumentEvent e) {
+                actualizarNumerosDeLinea();
+                timerColoreo.restart();
             }
-            public void removeUpdate(DocumentEvent e) { 
-                actualizarNumerosDeLinea(); 
-                timerColoreo.restart(); 
+
+            public void removeUpdate(DocumentEvent e) {
+                actualizarNumerosDeLinea();
+                timerColoreo.restart();
             }
-            public void changedUpdate(DocumentEvent e) { }
+
+            public void changedUpdate(DocumentEvent e) {
+            }
         });
     }
 
     private void Analisis() {
         String codigo = txtEntrada.getText();
-        
+
         // 1. Limpiar resultados anteriores
         modeloSimbolos.setRowCount(0);
         modeloErrores.setRowCount(0);
@@ -360,8 +386,7 @@ public class AnalizadorGUI extends JFrame {
         try {
             // --- FASE 1: ANÁLISIS LÉXICO (Tokenización y AFD) ---
             Token[] tokens = DSLCore.tokenizador(codigo);
-            AFD auto =new AFD
-        (DSLCore.getEstadosAceptacionDSL(),DSLCore.getAlfabetoDSL(),DSLCore.getTransicionesDSL(),"INICIO",DSLCore.getEstadosAceptacionDSL());
+            Automata auto = new Automata(DSLCore.getEstadosAceptacionDSL(), DSLCore.getAlfabetoDSL(), DSLCore.getTransicionesDSL(), "INICIO", DSLCore.getEstadosAceptacionDSL());
 
             Token[] resultadosLexicos = auto.aceptar(tokens);
 
@@ -370,16 +395,20 @@ public class AnalizadorGUI extends JFrame {
             for (Token t : resultadosLexicos) {
                 // Si el token es un error léxico
                 if (t.getTipoToken().startsWith("ERROR") || !t.existeSimbolo()) {
-                    
+
                     // --- ASIGNACIÓN DE CÓDIGOS DE ERROR LÉXICO ---
                     String codigoError = "DSL(100)"; // Genérico
-                    if (t.getTipoToken().contains("CADENA")) codigoError = "DSL(102)"; // Cadena incompleta
-                    else if (t.getTipoToken().contains("SIMBOLO")) codigoError = "DSL(101)"; // Símbolo raro
-                    else if (t.getTipoToken().contains("MALFORMADO")) codigoError = "DSL(103)";
-                    
-                    String desc = String.format("%s Lexema '%s' no válido. Causa: %s", 
-                                                codigoError, t.getLexema(), t.getTipoToken());
-                    
+                    if (t.getTipoToken().contains("CADENA")) {
+                        codigoError = "DSL(102)"; // Cadena incompleta
+                    } else if (t.getTipoToken().contains("SIMBOLO")) {
+                        codigoError = "DSL(101)"; // Símbolo raro
+                    } else if (t.getTipoToken().contains("MALFORMADO")) {
+                        codigoError = "DSL(103)";
+                    }
+
+                    String desc = String.format("%s Lexema '%s' no válido. Causa: %s",
+                            codigoError, t.getLexema(), t.getTipoToken());
+
                     listaErroresUnificada.add(new ErrorReporte(t.getLinea(), "LÉXICO", desc));
                 } else {
                     // Token válido, lo añadimos para el parser
@@ -393,18 +422,18 @@ public class AnalizadorGUI extends JFrame {
             // --- FASE 2: ANÁLISIS SINTÁCTICO ---
             if (!tokensValidos.isEmpty()) {
                 Token[] arrayTokensValidos = tokensValidos.toArray(new Token[0]);
-                
+
                 AnalizadorSintactico sintactico = new AnalizadorSintactico(arrayTokensValidos);
-                sintactico.analizar(); 
+                sintactico.analizar();
 
                 // A. Mostrar el árbol de derivación
                 List<String> log = sintactico.getArbolDerivacion();
                 StringBuilder sb = new StringBuilder();
                 for (String paso : log) {
-                    sb.append(paso).append("\n"); 
+                    sb.append(paso).append("\n");
                 }
                 txtSintactico.setText(sb.toString());
-                txtSintactico.setCaretPosition(0); 
+                txtSintactico.setCaretPosition(0);
 
                 // B. Procesar Errores Sintácticos
                 List<String> erroresSin = sintactico.getErrores();
@@ -417,12 +446,12 @@ public class AnalizadorGUI extends JFrame {
                         if (errStr.contains("[Línea ")) {
                             int inicioNum = errStr.indexOf("[Línea ") + 7;
                             int finNum = errStr.indexOf("]");
-                            
+
                             if (inicioNum < finNum) {
                                 String numStr = errStr.substring(inicioNum, finNum);
                                 linea = Integer.parseInt(numStr.trim());
                             }
-                            
+
                             // Limpiar descripción para la tabla
                             if (errStr.contains("]: ")) {
                                 String idPart = errStr.substring(0, errStr.indexOf("[")); // "DSL(201) "
@@ -431,9 +460,9 @@ public class AnalizadorGUI extends JFrame {
                             }
                         }
                     } catch (Exception ex) {
-                        linea = 0; 
+                        linea = 0;
                     }
-                    
+
                     listaErroresUnificada.add(new ErrorReporte(linea, "SINTÁCTICO", descripcion));
                 }
             } else {
@@ -444,18 +473,17 @@ public class AnalizadorGUI extends JFrame {
 
             for (ErrorReporte err : listaErroresUnificada) {
                 modeloErrores.addRow(new Object[]{
-                    (err.linea > 0 ? err.linea : "-"), 
-                    err.tipo, 
-                    err.descripcion 
+                    (err.linea > 0 ? err.linea : "-"),
+                    err.tipo,
+                    err.descripcion
                 });
             }
 
-
-                // glosario de errores
+            // glosario de errores
             int totalErrores = listaErroresUnificada.size();
             if (totalErrores == 0) {
                 lblResumen.setText("  Análisis Finalizado con ÉXITO. El código es correcto.");
-                lblResumen.setForeground(new Color(0, 128, 0)); 
+                lblResumen.setForeground(new Color(0, 128, 0));
             } else {
                 lblResumen.setText("  Se encontraron " + totalErrores + " errores.");
                 lblResumen.setForeground(Color.RED);
@@ -471,12 +499,14 @@ public class AnalizadorGUI extends JFrame {
         // Look and Feel nativo
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception ignored) {}
-        
+        } catch (Exception ignored) {
+        }
+
         SwingUtilities.invokeLater(() -> new AnalizadorGUI().setVisible(true));
     }
 
     private static class ErrorReporte implements Comparable<ErrorReporte> {
+
         int linea;
         String tipo;
         String descripcion;
@@ -493,4 +523,56 @@ public class AnalizadorGUI extends JFrame {
             return Integer.compare(this.linea, o.linea);
         }
     }
+
+    private Object[][] getDatosDiccionario() {
+        return new Object[][]{
+            {"DSL(101)", "Léxico", "Símbolo no reconocido en el alfabeto del lenguaje."},
+            {"DSL(102)", "Léxico", "Cadena de texto (string) sin cerrar o mal formada."},
+            {"DSL(103)", "Léxico", "Número o identificador mal formado (ej. 123abc)."},
+            {"DSL(201)", "Sintáctico", "Falta el punto y coma (;) al final de la sentencia."},
+            {"DSL(202)", "Sintáctico", "Falta un delimitador de bloque ( } ) o paréntesis ( ) )."},
+            {"DSL(203)", "Sintáctico", "Sentencia no válida o palabra reservada mal posicionada."},
+            {"DSL(204)", "Sintáctico", "Tipo de estructura de datos desconocido o no soportado."},
+            {"DSL(205)", "Sintáctico", "Falta la palabra clave 'EN' necesaria para la operación."},
+            {"DSL(206)", "Sintáctico", "Se esperaba un operador relacional (==, !=, <, >, etc)."},
+            {"DSL(207)", "Sintáctico", "Expresión matemática o lógica mal formada."},
+            {"DSL(208)", "Sintáctico", "Se esperaba un nombre de variable (IDENTIFICADOR)."},
+            {"DSL(299)", "Sintáctico", "Final de archivo inesperado (instrucción incompleta)."},
+            {"DSL(999)", "Sistema", "Error crítico irrecuperable en el proceso de análisis."}
+        };
+    }
+
+    private void abrirArchivo() {
+        JFileChooser selector = new JFileChooser();
+        // Filtro para que solo se vean archivos .txt
+        selector.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Archivos de texto (.txt)", "txt"));
+
+        int resultado = selector.showOpenDialog(this);
+
+        if (resultado == JFileChooser.APPROVE_OPTION) {
+            java.io.File archivo = selector.getSelectedFile();
+            try (java.io.BufferedReader lector = new java.io.BufferedReader(new java.io.FileReader(archivo))) {
+
+                StringBuilder contenido = new StringBuilder();
+                String linea;
+                while ((linea = lector.readLine()) != null) {
+                    contenido.append(linea).append("\n");
+                }
+
+                // Insertamos el texto en el JTextPane
+                txtEntrada.setText(contenido.toString());
+
+                // Forzamos el coloreado y actualización de números inmediatamente
+                colorearTexto();
+                actualizarNumerosDeLinea();
+
+                lblResumen.setText(" Archivo cargado: " + archivo.getName());
+                lblResumen.setForeground(new Color(0, 100, 0));
+
+            } catch (java.io.IOException ex) {
+                JOptionPane.showMessageDialog(this, "Error al leer el archivo: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
 }
