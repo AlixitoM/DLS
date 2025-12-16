@@ -5,8 +5,8 @@ import javax.swing.text.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
-import java.awt.event.KeyEvent; // Necesario para los atajos de teclado
-import java.awt.event.InputEvent; // Necesario para la tecla CTRL
+import java.awt.event.KeyEvent; 
+import java.awt.event.InputEvent; 
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -68,7 +68,7 @@ public class AnalizadorGUI extends JFrame {
             "VACIA",
             "TOPE", "FRENTE", "FRONT", "PEEK", "VERFILA", "CLAVE",
             "TAMANO", "ALTURA", "HOJAS", "NODOS", "VECINOS", "LLENA",
-            "NUMERO", "TEXTO"
+            "NUMERO", "TEXTO","FOR","WHILE","DO"
     // Añadidas de tu esPropiedad
     );
     // palabras que se pintaran de naranja 
@@ -183,12 +183,10 @@ public class AnalizadorGUI extends JFrame {
         tablaDiccionario.getColumnModel().getColumn(1).setPreferredWidth(100);
         tablaDiccionario.getColumnModel().getColumn(2).setPreferredWidth(400);
 
-// Colorear el fondo de la tabla de referencia para distinguirla
-        tablaDiccionario.setBackground(new Color(245, 245, 250));
-        // Se añade como tercera pestaña
 
-        // Pestaña A: Tabla de Símbolos (Léxico)
-        String[] colsSimbolos = {"Lexema", "Línea", "Col", "Tipo Token", "Estado AFD"};
+        tablaDiccionario.setBackground(new Color(245, 245, 250));
+     
+        String[] colsSimbolos = {"Lexema", "Línea", "Col", "Tipo Token"};
         modeloSimbolos = new DefaultTableModel(colsSimbolos, 0) {
             @Override
             public boolean isCellEditable(int row, int col) {
@@ -211,7 +209,7 @@ public class AnalizadorGUI extends JFrame {
         JScrollPane scrollDiccionario = new JScrollPane(tablaDiccionario);
         pestañas.addTab("Glosario de Errores", scrollDiccionario);
 
-        // --- 4. PANEL INFERIOR: Lista de Errores ---
+       
         String[] colsErrores = {"Línea", "Tipo", "Descripción del Error"};
         modeloErrores = new DefaultTableModel(colsErrores, 0) {
             @Override
@@ -224,7 +222,7 @@ public class AnalizadorGUI extends JFrame {
         tablaErrores.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         tablaErrores.setRowHeight(20);
 
-        // Ajustar ancho de columnas de error
+      
         tablaErrores.getColumnModel().getColumn(0).setPreferredWidth(60);
         tablaErrores.getColumnModel().getColumn(0).setMaxWidth(80);
         tablaErrores.getColumnModel().getColumn(1).setPreferredWidth(100);
@@ -234,26 +232,26 @@ public class AnalizadorGUI extends JFrame {
         scrollErrores.setBorder(BorderFactory.createTitledBorder(" Consola de Problemas "));
         scrollErrores.setPreferredSize(new Dimension(1000, 180));
 
-        // --- ORGANIZACIÓN FINAL ---
+     
         JSplitPane splitCentral = new JSplitPane(JSplitPane.VERTICAL_SPLIT, pestañas, scrollErrores);
         splitCentral.setResizeWeight(0.60);
 
         add(panelCodigo, BorderLayout.NORTH);
         add(splitCentral, BorderLayout.CENTER);
 
-        // Barra de estado inferior
+
         lblResumen = new JLabel(" Listo para analizar.");
         lblResumen.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
         add(lblResumen, BorderLayout.SOUTH);
 
-        // --- ACCIÓN DEL BOTÓN ---
+     
         btnAnalizar.addActionListener(e -> Analisis());
 
-        // --- INICIALIZAR LÓGICA DE COLORES Y NÚMEROS ---
+
         inicializarEstilos();
         Coloreado();
-        colorearTexto(); // Coloreada inicial
-        actualizarNumerosDeLinea(); // Actualización inicial de números
+        colorearTexto(); 
+        actualizarNumerosDeLinea(); 
     }
 
     private void actualizarNumerosDeLinea() {
@@ -308,7 +306,7 @@ public class AnalizadorGUI extends JFrame {
 
                 Matcher m;
 
-                // 1. Palabras Reservadas y Estructuras
+         
                 m = Pattern.compile("\\b[A-Za-z_][A-Za-z0-9_]*\\b").matcher(texto);
                 while (m.find()) {
                     String palabra = m.group().toUpperCase();
@@ -319,32 +317,32 @@ public class AnalizadorGUI extends JFrame {
                     }
                 }
 
-                // 2. Números
+              
                 m = Pattern.compile("\\b\\d+\\b").matcher(texto);
                 while (m.find()) {
                     doc.setCharacterAttributes(m.start(), m.end() - m.start(), numero, false);
                 }
 
-                // 3. Operadores
+          
                 m = Pattern.compile("[=+\\-*/<>;(){},]").matcher(texto);
                 while (m.find()) {
                     doc.setCharacterAttributes(m.start(), 1, operador, false);
                 }
 
-                // 4. Cadenas
+            
                 m = Pattern.compile("\"[^\"]*\"").matcher(texto);
                 while (m.find()) {
                     doc.setCharacterAttributes(m.start(), m.end() - m.start(), cadenaStyle, false);
                 }
 
-                // 5. Comentarios
+         
                 m = Pattern.compile("//.*").matcher(texto);
                 while (m.find()) {
                     doc.setCharacterAttributes(m.start(), m.end() - m.start(), verdeComentario, false);
                 }
 
             } catch (Exception e) {
-                // Ignorar
+ 
             } finally {
                 coloreando = false;
             }
@@ -384,7 +382,7 @@ public class AnalizadorGUI extends JFrame {
         List<ErrorReporte> listaErroresUnificada = new ArrayList<>();
 
         try {
-            // --- FASE 1: ANÁLISIS LÉXICO (Tokenización y AFD) ---
+    
             Token[] tokens = DSLCore.tokenizador(codigo);
             Automata auto = new Automata(DSLCore.getEstadosAceptacionDSL(), DSLCore.getAlfabetoDSL(), DSLCore.getTransicionesDSL(), "INICIO", DSLCore.getEstadosAceptacionDSL());
 
@@ -393,15 +391,15 @@ public class AnalizadorGUI extends JFrame {
             List<Token> tokensValidos = new ArrayList<>();
 
             for (Token t : resultadosLexicos) {
-                // Si el token es un error léxico
+          
                 if (t.getTipoToken().startsWith("ERROR") || !t.existeSimbolo()) {
 
-                    // --- ASIGNACIÓN DE CÓDIGOS DE ERROR LÉXICO ---
-                    String codigoError = "DSL(100)"; // Genérico
+             
+                    String codigoError = "DSL(100)"; 
                     if (t.getTipoToken().contains("CADENA")) {
-                        codigoError = "DSL(102)"; // Cadena incompleta
+                        codigoError = "DSL(102)"; 
                     } else if (t.getTipoToken().contains("SIMBOLO")) {
-                        codigoError = "DSL(101)"; // Símbolo raro
+                        codigoError = "DSL(101)";
                     } else if (t.getTipoToken().contains("MALFORMADO")) {
                         codigoError = "DSL(103)";
                     }
@@ -411,7 +409,7 @@ public class AnalizadorGUI extends JFrame {
 
                     listaErroresUnificada.add(new ErrorReporte(t.getLinea(), "LÉXICO", desc));
                 } else {
-                    // Token válido, lo añadimos para el parser
+                 
                     tokensValidos.add(t);
                     modeloSimbolos.addRow(new Object[]{
                         t.getLexema(), t.getLinea(), t.getColumna(), t.getTipoToken(), t.getEstadoFinal()
@@ -419,14 +417,13 @@ public class AnalizadorGUI extends JFrame {
                 }
             }
 
-            // --- FASE 2: ANÁLISIS SINTÁCTICO ---
+       
             if (!tokensValidos.isEmpty()) {
                 Token[] arrayTokensValidos = tokensValidos.toArray(new Token[0]);
 
                 AnalizadorSintactico sintactico = new AnalizadorSintactico(arrayTokensValidos);
                 sintactico.analizar();
 
-                // A. Mostrar el árbol de derivación
                 List<String> log = sintactico.getArbolDerivacion();
                 StringBuilder sb = new StringBuilder();
                 for (String paso : log) {
@@ -435,13 +432,13 @@ public class AnalizadorGUI extends JFrame {
                 txtSintactico.setText(sb.toString());
                 txtSintactico.setCaretPosition(0);
 
-                // B. Procesar Errores Sintácticos
+        
                 List<String> erroresSin = sintactico.getErrores();
                 for (String errStr : erroresSin) {
                     int linea = 0;
                     String descripcion = errStr;
 
-                    // Parsear string formato: "DSL(201) [Línea 5]: Mensaje..."
+               
                     try {
                         if (errStr.contains("[Línea ")) {
                             int inicioNum = errStr.indexOf("[Línea ") + 7;
@@ -452,10 +449,10 @@ public class AnalizadorGUI extends JFrame {
                                 linea = Integer.parseInt(numStr.trim());
                             }
 
-                            // Limpiar descripción para la tabla
+                           
                             if (errStr.contains("]: ")) {
-                                String idPart = errStr.substring(0, errStr.indexOf("[")); // "DSL(201) "
-                                String msgPart = errStr.substring(errStr.indexOf("]: ") + 3); // "Mensaje"
+                                String idPart = errStr.substring(0, errStr.indexOf("[")); 
+                                String msgPart = errStr.substring(errStr.indexOf("]: ") + 3); 
                                 descripcion = idPart + msgPart;
                             }
                         }
@@ -544,7 +541,7 @@ public class AnalizadorGUI extends JFrame {
 
     private void abrirArchivo() {
         JFileChooser selector = new JFileChooser();
-        // Filtro para que solo se vean archivos .txt
+ 
         selector.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Archivos de texto (.txt)", "txt"));
 
         int resultado = selector.showOpenDialog(this);
@@ -559,10 +556,10 @@ public class AnalizadorGUI extends JFrame {
                     contenido.append(linea).append("\n");
                 }
 
-                // Insertamos el texto en el JTextPane
+               
                 txtEntrada.setText(contenido.toString());
 
-                // Forzamos el coloreado y actualización de números inmediatamente
+            
                 colorearTexto();
                 actualizarNumerosDeLinea();
 
