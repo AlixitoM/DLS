@@ -1,17 +1,19 @@
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-
 public class AnalizadorSintactico {
+
     private final Token[] tokens;
     private int actual;
     private final List<String> logDerivacion;
     private final List<String> errores;
-    
+
     private int nivelIndentacion = 0;
 
     private static class ParserException extends RuntimeException {
+
         public ParserException(String message) {
             super(message);
         }
@@ -24,7 +26,6 @@ public class AnalizadorSintactico {
         this.errores = new ArrayList<>();
     }
 
-   
     private void arbol(String mensaje) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < nivelIndentacion; i++) {
@@ -34,10 +35,7 @@ public class AnalizadorSintactico {
         logDerivacion.add(sb.toString());
     }
 
-    /*
-      Punto de entrada principal del análisis.
-      Inicia la derivación desde el símbolo inicial <Programa>.
-     */
+   
     public void analizar() {
         logDerivacion.clear();
         arbol("INICIO DEL ANÁLISIS SINTÁCTICO");
@@ -49,23 +47,19 @@ public class AnalizadorSintactico {
         arbol("FIN DEL ANÁLISIS");
     }
 
-    public List<String> getArbolDerivacion() { return logDerivacion; }
-    public List<String> getErrores() { return errores; }
+    public List<String> getArbolDerivacion() {
+        return logDerivacion;
+    }
 
-    // -------------------------------------------------------------------------
-    // --- REGLAS DE PRODUCCIÓN (GRAMÁTICA) ------------------------------------
-    // -------------------------------------------------------------------------
+    public List<String> getErrores() {
+        return errores;
+    }
 
-    // esta es la secuencia principal del ocmpilador a partir de estas salen todas las demas 
+
     private void programa() {
         nivelIndentacion++;
-        while (!esFin()) {
-          
-            if (checar("}")) {
-                avanzar();
-                continue;
-            }
-
+        // Mientras no sea el fin Y no encontremos una llave de cierre
+        while (!esFin() && !checar("}")) {
             try {
                 sentencia();
             } catch (ParserException e) {
@@ -76,83 +70,167 @@ public class AnalizadorSintactico {
         nivelIndentacion--;
     }
 
-    //  una vez se inicia el programa se inicia con la sentencia el cual seria nuestro primer 'no terminal'
     private void sentencia() {
-        if (esFin()) return;
+        if (esFin()) {
+            return;
+        }
 
         String lexema = tokenActual().getLexema().toUpperCase();
 
-        // se valida la clasificacion de los posibles iniciadores de sentencia 
-        
+        if (checar("}")) {
+            return; 
+        }
+
         if (lexema.equals("CREAR")) {
             arbol("<Sentencia> -> Declaración");
             nivelIndentacion++;
             declaracion();
             nivelIndentacion--;
-        } 
-        else if (esVerboOperacion(lexema)) {
+        } else if (esVerboOperacion(lexema)) {
             arbol("<Sentencia> -> Operación Estructura");
             nivelIndentacion++;
             operacionEstructura();
             nivelIndentacion--;
-        }
-        else if (lexema.equals("IF")) {
+        } else if (lexema.equals("IF")) {
             arbol("<Sentencia> -> Estructura IF");
             nivelIndentacion++;
             flujoIf();
             nivelIndentacion--;
-        }
+        } // --- NUEVOS CASOS ---
+        else if (lexema.equals("WHILE")) {
+            arbol("<Sentencia> -> Bucle WHILE");
+            nivelIndentacion++;
+            bucleWhile();
+            nivelIndentacion--;
+        } else if (lexema.equals("FOR")) {
+            arbol("<Sentencia> -> Bucle FOR");
+            nivelIndentacion++;
+            bucleFor();
+            nivelIndentacion--;
+        } else if (lexema.equals("DO")) {
+            arbol("<Sentencia> -> Bucle DO-WHILE");
+            nivelIndentacion++;
+            bucleDoWhile();
+            nivelIndentacion--;
+        } // --------------------
         else if (lexema.equals("MOSTRAR")) {
             arbol("<Sentencia> -> Salida");
             nivelIndentacion++;
             salida();
             nivelIndentacion--;
-        }
-        else if (tokenActual().getTipoToken().equals("IDENTIFICADOR")) {
+        } else if (tokenActual().getTipoToken().equals("IDENTIFICADOR")) {
             arbol("<Sentencia> -> Asignación");
             nivelIndentacion++;
             asignacion();
             nivelIndentacion--;
-        }
-        else if (lexema.equals(";")) {
+        } else if (lexema.equals(";")) {
             consumir(";");
-        }
-        // si no hay ninguno se manda mensaje de error 
-        else {
-            throw error("Se esperaba sentencia válida (CREAR, IF, MOSTRAR...), se encontró: '" + lexema + "'", 203);
+        } else {
+            throw error("Se esperaba sentencia válida (CREAR, IF, WHILE, FOR...), se encontró: '" + lexema + "'", 203);
         }
     }
 
-    /*
-      <Declaracion> ::= CREAR <Tipo> IDENTIFICADOR [LITERAL_NUMERICA] ;
-     */
+  
+    private void bucleWhile() {
+        consumir("WHILE");
+        consumir("(");
+        arbol("Condición While...");
+        condicion();
+        consumir(")");
+        consumir("{");
+
+        arbol("--- Cuerpo WHILE ---");
+        programa();
+
+        consumir("}");
+        arbol("--- Fin WHILE ---");
+    }
+
+  
+    private void bucleDoWhile() {
+        consumir("DO");
+        consumir("{");
+        arbol("--- Cuerpo DO ---");
+
+        programa();
+
+        consumir("}");
+        consumir("WHILE");
+        consumir("(");
+        arbol("Condición de salida (Do-While)... ");
+        condicion();
+        consumir(")");
+        consumir(";");
+        arbol("--- Fin DO-WHILE ---");
+    }
+
+
+    private void bucleFor() {
+        consumir("FOR");
+        consumir("(");
+
+        arbol("Inicialización FOR:");
+
+        asignacion();
+
+        arbol("Condición FOR:");
+        condicion();
+        consumir(";");
+
+        arbol("Actualización FOR:");
+
+        asignacionParaFor();
+
+        consumir(")");
+        consumir("{");
+
+        arbol("--- Cuerpo FOR ---");
+        programa();
+
+        consumir("}");
+        arbol("--- Fin FOR ---");
+    }
+
+ 
+    private void asignacionParaFor() {
+        String id = tokenActual().getLexema();
+        consumir("IDENTIFICADOR");
+        consumir("=");
+        arbol("Actualizando: " + id);
+        expresion();
+      
+    }
     private void declaracion() {
         consumir("CREAR");
-        
+
         String tipo = tokenActual().getLexema().toUpperCase();
-        if (!esTipoEstructura(tipo)) {
-            throw error("Tipo de estructura desconocido: " + tipo, 204);
+        if (esTipoValido(tipo)) {
+            avanzar(); 
+        } else {
+            throw error("Tipo de dato desconocido: " + tipo, 204);
         }
-        
-        arbol("Tipo: " + tipo);
-        consumir(tokenActual().getLexema()); 
-        
-        arbol("Nombre ID: " + tokenActual().getLexema());
-        consumir("IDENTIFICADOR");
-        
-        // Tamaño opcional para estructuras estáticas
-        if (tokenActual().getTipoToken().equals("LITERAL_NUMERICA")) {
-             arbol("Tamaño definido: " + tokenActual().getLexema());
-             consumir("LITERAL_NUMERICA");
+
+        String nombreVar = tokenActual().getLexema();
+        consumir("IDENTIFICADOR"); 
+
+       
+        if (checar("=")) {
+            consumir("=");
+            if (tipo.equals("TEXTO")) {
+                consumir("CADENA"); 
+            } else {
+                expresion(); 
+            }
+        } 
+        else if (tokenActual().getTipoToken().equals("NUMERO")) {
+            avanzar();
         }
+
         consumir(";");
-        arbol(" Declaración completada.");
+        arbol("Declaración de variable/estructura: " + tipo + " " + nombreVar);
     }
 
-    /*
-      <Operacion> ::= VERBO [Parametros] EN IDENTIFICADOR ;
-      Maneja la sintaxis variable de los verbos (con 0, 1 o más parámetros).
-     */
+    
     private void operacionEstructura() {
         String verbo = tokenActual().getLexema().toUpperCase();
         arbol("Acción: " + verbo);
@@ -160,12 +238,13 @@ public class AnalizadorSintactico {
 
         // 1. Verbos sin parámetros explícitos (ej. ELIMINAR, RECORRER)
         if (esVerboSinParametros(verbo)) {
-            if (!checar("EN")) throw error("Falta 'EN' después de " + verbo, 205);
+            if (!checar("EN")) {
+                throw error("Falta 'EN' después de " + verbo, 205);
+            }
             consumir("EN");
             arbol("Sobre estructura: " + tokenActual().getLexema());
             consumir("IDENTIFICADOR");
-        }
-        // 2. Operaciones complejas específicas
+        } // 2. Operaciones complejas específicas
         else if (verbo.equals("INSERTAR_EN_POSICION")) {
             arbol("Param: Posición");
             expresion();
@@ -175,8 +254,7 @@ public class AnalizadorSintactico {
             consumir("VALOR");
             arbol("Param: Valor");
             expresion();
-        }
-        else if (verbo.equals("AGREGARARISTA") || verbo.equals("CAMINOCORTO")) {
+        } else if (verbo.equals("AGREGARARISTA") || verbo.equals("CAMINOCORTO")) {
             arbol("Nodo Origen:");
             expresion();
             arbol("Nodo Destino:");
@@ -184,24 +262,24 @@ public class AnalizadorSintactico {
             consumir("EN");
             consumir("IDENTIFICADOR");
             if (checar("CON") || checar("PESO")) {
-                 avanzar();
-                 arbol("Con Peso:");
-                 expresion();
+                avanzar();
+                arbol("Con Peso:");
+                expresion();
             }
-        }
-        else if (verbo.equals("ELIMINAR_POSICION")) {
+        } else if (verbo.equals("ELIMINAR_POSICION")) {
             arbol("Índice a eliminar:");
             expresion();
             consumir("EN");
             consumir("IDENTIFICADOR");
-        }
-        // 3. Caso estándar (Un parámetro + EN + ID)
+        } // 3. Caso estándar (Un parámetro + EN + ID)
         else {
             if (!verbo.startsWith("ELIMINAR") && !verbo.startsWith("DES") && !verbo.startsWith("POP")) {
                 arbol("Valor/Dato:");
                 expresion();
             }
-            if (!checar("EN")) throw error("Falta 'EN'", 205);
+            if (!checar("EN")) {
+                throw error("Falta 'EN'", 205);
+            }
             consumir("EN");
             arbol("En estructura: " + tokenActual().getLexema());
             consumir("IDENTIFICADOR");
@@ -210,7 +288,6 @@ public class AnalizadorSintactico {
         consumir(";");
     }
 
-    
     private void flujoIf() {
         consumir("IF");
         consumir("(");
@@ -218,7 +295,7 @@ public class AnalizadorSintactico {
         condicion();
         consumir(")");
         consumir("{");
-        
+
         arbol("--- Bloque VERDADERO ---");
         while (!checar("}") && !esFin()) {
             try {
@@ -247,13 +324,22 @@ public class AnalizadorSintactico {
         }
     }
 
-    private void salida() {
-        consumir("MOSTRAR");
-        arbol("Expresión a imprimir:");
+   private void salida() {
+    consumir("MOSTRAR");
+    
+    if (checar("VECINOS")) {
+        consumir("VECINOS");
         expresion();
-        consumir(";");
+        consumir("EN");
+        String idGrafo = tokenActual().getLexema();
+        consumir("IDENTIFICADOR");
+        arbol("Consulta: Mostrar vecinos de un nodo en " + idGrafo);
+    } else {
+        expresion(); 
     }
-
+    
+    consumir(";");
+}
     private void asignacion() {
         String id = tokenActual().getLexema();
         consumir("IDENTIFICADOR");
@@ -300,19 +386,15 @@ public class AnalizadorSintactico {
             consumir(lexema);
             consumir("EN");
             consumir("IDENTIFICADOR");
-        } 
-        else if (lexema.equals("(")) {
+        } else if (lexema.equals("(")) {
             consumir("(");
             expresion();
             consumir(")");
-        }
-        else if (tipo.equals("IDENTIFICADOR")) {
+        } else if (tipo.equals("IDENTIFICADOR")) {
             consumir("IDENTIFICADOR");
-        }
-        else if (tipo.equals("LITERAL_NUMERICA") || tipo.equals("LITERAL_CADENA")) {
+        } else if (tipo.equals("LITERAL_NUMERICA") || tipo.equals("LITERAL_CADENA")) {
             consumir(tipo);
-        }
-        else {
+        } else {
             throw error("Factor inválido en expresión: " + lexema, 207);
         }
     }
@@ -331,28 +413,32 @@ public class AnalizadorSintactico {
         if (match) {
             avanzar();
         } else {
-            // Mapeo de códigos de error según el tipo esperado
-            int codigoError = 203; 
-            if (expected.equals(";")) codigoError = 201;
-            else if (expected.equals("}") || expected.equals(")")) codigoError = 202; 
-            else if (expected.equals("EN")) codigoError = 205;
-            else if (expected.equals("IDENTIFICADOR")) codigoError = 208;
+            int codigoError = 203;
+            if (expected.equals(";")) {
+                codigoError = 201;
+            } else if (expected.equals("}") || expected.equals(")")) {
+                codigoError = 202;
+            } else if (expected.equals("EN")) {
+                codigoError = 205;
+            } else if (expected.equals("IDENTIFICADOR")) {
+                codigoError = 208;
+            }
 
             throw error("Se esperaba '" + expected + "', se encontró '" + t.getLexema() + "'", codigoError);
         }
     }
 
-    
     // valida que el token recibido este clasificado y sea lo que nescesitamos 
     private boolean checar(String token) {
-        if (esFin()) return false;
+        if (esFin()) {
+            return false;
+        }
         Token t = tokenActual();
         return t.getLexema().equalsIgnoreCase(token) || t.getTipoToken().equals(token);
     }
-    
-    
-    private boolean coincide(String expected) {
-        if (checar(expected)) {
+
+    private boolean coincide(String siguiente) {
+        if (checar(siguiente)) {
             avanzar();
             return true;
         }
@@ -360,17 +446,24 @@ public class AnalizadorSintactico {
     }
 
     private void sincronizar() {
-        arbol(">> ERROR DETECTADO - RECUPERANDO MODO PÁNICO... <<");
-        
-        if (checar(";") || checar("}")) avanzar();
-        
+        arbol(">> ERROR DETECTADO ");
+
+        if (checar(";") || checar("}")) {
+            avanzar();
+        }
+
         while (!esFin()) {
             String lexema = tokenActual().getLexema();
-            if (lexema.equals(";")) { avanzar(); return; }
-            if (lexema.equals("}")) { return; } 
-            
+            if (lexema.equals(";")) {
+                avanzar();
+                return;
+            }
+            if (lexema.equals("}")) {
+                return;
+            }
+
             String lexUpper = lexema.toUpperCase();
-            if (Set.of("CREAR", "IF", "MOSTRAR", "INSERTAR", "APILAR", "ELIMINAR").contains(lexUpper)) {
+            if (Set.of("CREAR", "IF", "MOSTRAR", "INSERTAR", "APILAR", "ELIMINAR", "WHILE", "FOR").contains(lexUpper)) {
                 return;
             }
             avanzar();
@@ -378,12 +471,16 @@ public class AnalizadorSintactico {
     }
 
     private Token tokenActual() {
-        if (actual >= tokens.length) return tokens[tokens.length - 1];
+        if (actual >= tokens.length) {
+            return tokens[tokens.length - 1];
+        }
         return tokens[actual];
     }
 
     private void avanzar() {
-        if (actual < tokens.length) actual++;
+        if (actual < tokens.length) {
+            actual++;
+        }
     }
 
     private boolean esFin() {
@@ -391,45 +488,78 @@ public class AnalizadorSintactico {
     }
 
     private ParserException error(String mensaje, int codigo) {
-        int linea = esFin() ? tokens[tokens.length-1].getLinea() : tokenActual().getLinea();
+        int linea = esFin() ? tokens[tokens.length - 1].getLinea() : tokenActual().getLinea();
         return new ParserException("DSL(" + codigo + ") [Línea " + linea + "]: " + mensaje);
     }
 
-    // -------------------------------------------------------------------------
-    // --- CONJUNTOS DE VALIDACIÓN RÁPIDA (LOOKUPS) ----------------------------
-    // -------------------------------------------------------------------------
-
+  
     private boolean esTipoEstructura(String s) {
-        return Set.of("PILA", "COLA", "BICOLA", "LISTA_ENLAZADA", "LISTA_CIRCULAR","LISTA_DOBLE_ENLAZADA",
-                      "ARBOL_BINARIO", "TABLA_HASH", "GRAFO", "PILA_CIRCULAR").contains(s);
+        return Set.of("PILA", "COLA", "BICOLA", "LISTA_ENLAZADA", "LISTA_CIRCULAR", "LISTA_DOBLE_ENLAZADA",
+                "ARBOL_BINARIO", "TABLA_HASH", "GRAFO", "PILA_CIRCULAR").contains(s);
     }
 
     private boolean esVerboOperacion(String s) {
         return Set.of(
-            "INSERTAR", "INSERTAR_FINAL", "INSERTAR_INICIO", "INSERTAR_EN_POSICION", 
-            "INSERTARIZQUIERDA", "INSERTARDERECHA", "AGREGARNODO", "APILAR", "ENCOLAR", 
-            "PUSH", "ENQUEUE", "ELIMINAR", "ELIMINAR_INICIO", "ELIMINAR_FINAL", 
-            "ELIMINAR_FRENTE", "ELIMINAR_POSICION", "ELIMINARNODO", "DESAPILAR", "POP", 
-            "DESENCOLAR", "DEQUEUE", "BUSCAR", "RECORRER", "BFS", "DFS", "AGREGARARISTA", 
-            "ELIMINARARISTA", "ACTUALIZAR", "REHASH", "CAMINOCORTO"
+                "INSERTAR", "INSERTAR_FINAL", "INSERTAR_INICIO", "INSERTAR_EN_POSICION",
+                "INSERTARIZQUIERDA", "INSERTARDERECHA", "AGREGARNODO", "APILAR", "ENCOLAR",
+                "PUSH", "ENQUEUE", "ELIMINAR", "ELIMINAR_INICIO", "ELIMINAR_FINAL",
+                "ELIMINAR_FRENTE", "ELIMINAR_POSICION", "ELIMINARNODO", "DESAPILAR", "POP",
+                "DESENCOLAR", "DEQUEUE", "BUSCAR", "RECORRER", "BFS", "DFS", "AGREGARARISTA",
+                "ELIMINARARISTA", "ACTUALIZAR", "REHASH", "CAMINOCORTO"
         ).contains(s);
     }
-    
+
     private boolean esVerboSinParametros(String s) {
         return Set.of(
-            "ELIMINAR", "DESAPILAR", "POP", "DESENCOLAR", "DEQUEUE", 
-            "ELIMINAR_INICIO", "ELIMINAR_FINAL", "ELIMINAR_FRENTE",
-            "RECORRER", "RECORRERADELANTE", "RECORRERATRAS", "BFS", "DFS",
-            "PREORDEN", "INORDEN", "POSTORDEN", "RECORRIDOPORNIVELES", "VACIA"
+                "ELIMINAR", "DESAPILAR", "POP", "DESENCOLAR", "DEQUEUE",
+                "ELIMINAR_INICIO", "ELIMINAR_FINAL", "ELIMINAR_FRENTE",
+                "RECORRER", "RECORRERADELANTE", "RECORRERATRAS", "BFS", "DFS",
+                "PREORDEN", "INORDEN", "POSTORDEN", "RECORRIDOPORNIVELES", "VACIA"
         ).contains(s);
     }
 
     private boolean esPropiedad(String s) {
-        return Set.of("TOPE", "FRENTE", "FRONT", "PEEK", "VERFILA", "CLAVE", 
-                      "TAMANO", "ALTURA", "HOJAS", "NODOS", "VECINOS", "VACIAT", "LLENAT").contains(s);
+        return Set.of("TOPE", "FRENTE", "FRONT", "PEEK", "VERFILA", "CLAVE",
+                "TAMANO", "ALTURA", "HOJAS", "NODOS", "VECINOS", "VACIAT", "LLENAT").contains(s);
     }
-    
+
     private boolean esOperadorRelacional(String s) {
         return Set.of("==", "!=", "<", ">", "<=", ">=").contains(s);
     }
+    
+    private boolean esTipoValido(String s) {
+    return esTipoEstructura(s) || s.equals("NUMERO") || s.equals("TEXTO");
+}
+ 
+    private void operacionArista() {
+    consumir("AGREGARARISTA");
+    
+    expresion(); 
+    
+    expresion(); 
+    
+    // Peso Opcional
+    if (checar("PESO")) {
+        consumir("PESO");
+        expresion(); // El valor del peso
+    }
+    
+    consumir("EN");
+    
+    String idGrafo = tokenActual().getLexema();
+    consumir("IDENTIFICADOR");
+    consumir(";");
+    
+    arbol("Operación: Agregar Arista en Grafo " + idGrafo);
+}
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 }
