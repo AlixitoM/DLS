@@ -1,12 +1,12 @@
-
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.text.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
-import java.awt.event.KeyEvent; 
-import java.awt.event.InputEvent; 
+import java.awt.event.KeyEvent;
+import java.awt.event.InputEvent;
+import java.io.*; // Importamos librerías para manejo de archivos
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -23,13 +23,16 @@ public class AnalizadorGUI extends JFrame {
     private JTextArea txtSintactico;
     private JTable tablaSimbolos;
     private JTable tablaErrores;
+    
+    // --- Control de Archivos ---
+    private File archivoActual = null; // Variable para controlar el archivo abierto
 
     // --- Modelos de datos ---
     private DefaultTableModel modeloSimbolos;
     private DefaultTableModel modeloErrores;
     private JLabel lblResumen;
 
-// colores de los tipos de tokens
+    // colores de los tipos de tokens
     private Style normal;
     private Style reservada;
     private Style numero;
@@ -45,11 +48,7 @@ public class AnalizadorGUI extends JFrame {
 
     // Definimos las palabras para colorear 
     private static final Set<String> PALABRAS_RESERVADAS = Set.of(
-            // 1. Palabras clave de Control y Estructura (Del Analizador Sintáctico)
-            "CREAR",
-            "IF",
-            "ELSE",
-            "MOSTRAR",
+            "CREAR", "IF", "ELSE", "MOSTRAR",
             "INSERTAR", "INSERTAR_FINAL", "INSERTAR_INICIO", "INSERTAR_EN_POSICION",
             "INSERTARIZQUIERDA", "INSERTARDERECHA", "AGREGARNODO",
             "APILAR", "ENCOLAR", "PUSH", "ENQUEUE",
@@ -59,19 +58,13 @@ public class AnalizadorGUI extends JFrame {
             "BUSCAR",
             "RECORRER", "RECORRERADELANTE", "RECORRERATRAS",
             "PREORDEN", "INORDEN", "POSTORDEN", "RECORRIDOPORNIVELES",
-            // 3. Palabras clave para Grafos
             "BFS", "DFS", "AGREGARARISTA", "ELIMINARARISTA", "CAMINOCORTO",
-            "EN",
-            "PESO",
-            "ACTUALIZAR",
-            "REHASH",
-            "VACIA",
+            "EN", "PESO", "ACTUALIZAR", "REHASH", "VACIA",
             "TOPE", "FRENTE", "FRONT", "PEEK", "VERFILA", "CLAVE",
             "TAMANO", "ALTURA", "HOJAS", "NODOS", "VECINOS", "LLENA",
-            "NUMERO", "TEXTO","FOR","WHILE","DO"
-    // Añadidas de tu esPropiedad
+            "NUMERO", "TEXTO", "FOR", "WHILE", "DO"
     );
-    // palabras que se pintaran de naranja 
+    
     private static final Set<String> ESTRUCTURAS_DATOS = Set.of(
             "PILA", "COLA", "BICOLA", "LISTA_ENLAZADA", "LISTA_CIRCULAR",
             "ARBOL_BINARIO", "TABLA_HASH", "GRAFO", "PILA_CIRCULAR"
@@ -87,23 +80,38 @@ public class AnalizadorGUI extends JFrame {
 
         JMenuBar barraMenu = new JMenuBar();
 
+        // --- MENU ARCHIVO ---
         JMenu menuArchivo = new JMenu("Archivo");
+        
+        // 1. Abrir
+        JMenuItem itemAbrir = new JMenuItem("Abrir archivo (.txt)");
+        itemAbrir.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK));
+        itemAbrir.addActionListener(e -> abrirArchivo());
+        
+        // 2. Guardar (NUEVO)
+        JMenuItem itemGuardar = new JMenuItem("Guardar");
+        itemGuardar.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, InputEvent.CTRL_DOWN_MASK));
+        itemGuardar.addActionListener(e -> guardarArchivo());
+
+        // 3. Guardar Como (NUEVO)
+        JMenuItem itemGuardarComo = new JMenuItem("Guardar Como...");
+        itemGuardarComo.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK));
+        itemGuardarComo.addActionListener(e -> guardarArchivoComo());
+
+        // 4. Salir
         JMenuItem itemSalir = new JMenuItem("Salir");
         itemSalir.addActionListener(e -> System.exit(0));
+
+        menuArchivo.add(itemAbrir);
+        menuArchivo.add(itemGuardar);     // Agregado
+        menuArchivo.add(itemGuardarComo); // Agregado
+        menuArchivo.addSeparator();
         menuArchivo.add(itemSalir);
 
+        // --- MENU REFERENCIAS ---
         JMenu menuReferencias = new JMenu("Referencias");
 
         JMenuItem itemTabla = new JMenuItem("Tabla de Símbolos (Léxico)");
-    
-
-// --- OPCIÓN ABRIR ---
-        JMenuItem itemAbrir = new JMenuItem("Abrir archivo (.txt)");
-        itemAbrir.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK));
-        itemAbrir.addActionListener(e -> abrirArchivo()); // Llamamos al método que crearemos
-        menuArchivo.add(itemAbrir);
-
-
         itemTabla.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_T, InputEvent.CTRL_DOWN_MASK));
         itemTabla.addActionListener(e -> VentanaReferencia.mostrarTablaSimbolos());
 
@@ -120,6 +128,7 @@ public class AnalizadorGUI extends JFrame {
 
         setJMenuBar(barraMenu);
 
+        // --- EDITOR DE CÓDIGO ---
         JPanel panelCodigo = new JPanel(new BorderLayout(5, 5));
         panelCodigo.setBorder(BorderFactory.createTitledBorder(" Editor de Código DSL "));
 
@@ -129,7 +138,6 @@ public class AnalizadorGUI extends JFrame {
 
         doc = txtEntrada.getStyledDocument();
 
-        // Configur
         txtNumerosLineas = new JTextArea("1");
         txtNumerosLineas.setFont(new Font("Consolas", Font.PLAIN, 14));
         txtNumerosLineas.setBackground(new Color(230, 230, 230));
@@ -141,7 +149,6 @@ public class AnalizadorGUI extends JFrame {
         scrollCodigo.setRowHeaderView(txtNumerosLineas);
         scrollCodigo.setPreferredSize(new Dimension(1000, 200));
 
-        // Botón de Análisis
         JButton btnAnalizar = new JButton("Compilar / Ejecutar");
         btnAnalizar.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btnAnalizar.setForeground(Color.WHITE);
@@ -151,12 +158,10 @@ public class AnalizadorGUI extends JFrame {
         btnAnalizar.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnAnalizar.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
 
-        // manejador de eventos para que el boton de analizar cambie de color ligeramente 
         btnAnalizar.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent evt) {
                 btnAnalizar.setBackground(new Color(0, 90, 170));
             }
-
             public void mouseExited(java.awt.event.MouseEvent evt) {
                 btnAnalizar.setBackground(new Color(0, 120, 215));
             }
@@ -167,9 +172,8 @@ public class AnalizadorGUI extends JFrame {
 
         // --- 3. PANEL CENTRAL: Pestañas de Resultados ---
         JTabbedPane pestañas = new JTabbedPane();
-        // ... después de crear scrollSintactico ...
 
-// Pestaña C: Diccionario de Errores (NUEVA)
+        // Pestaña C: Diccionario de Errores
         String[] colsDiccionario = {"Código", "Categoría", "Significado / Solución"};
         DefaultTableModel modeloDic = new DefaultTableModel(getDatosDiccionario(), colsDiccionario) {
             @Override
@@ -182,10 +186,9 @@ public class AnalizadorGUI extends JFrame {
         tablaDiccionario.getColumnModel().getColumn(0).setPreferredWidth(80);
         tablaDiccionario.getColumnModel().getColumn(1).setPreferredWidth(100);
         tablaDiccionario.getColumnModel().getColumn(2).setPreferredWidth(400);
-
-
         tablaDiccionario.setBackground(new Color(245, 245, 250));
-     
+        
+        // Pestaña A: Análisis Léxico
         String[] colsSimbolos = {"Lexema", "Línea", "Col", "Tipo Token"};
         modeloSimbolos = new DefaultTableModel(colsSimbolos, 0) {
             @Override
@@ -198,18 +201,36 @@ public class AnalizadorGUI extends JFrame {
         JScrollPane scrollSimbolos = new JScrollPane(tablaSimbolos);
         pestañas.addTab("Análisis Léxico (Tokens)", scrollSimbolos);
 
-        // Pestaña B: Árbol Sintáctico (Log de Derivación)
+        // --- Pestaña B: Árbol Sintáctico (MODIFICADA PARA EL BOTÓN IMPRIMIR) ---
         txtSintactico = new JTextArea();
         txtSintactico.setEditable(false);
         txtSintactico.setFont(new Font("Consolas", Font.PLAIN, 12));
         txtSintactico.setForeground(new Color(40, 40, 40));
         JScrollPane scrollSintactico = new JScrollPane(txtSintactico);
-        pestañas.addTab("Reporte Estructurado (Árbol)", scrollSintactico);
+
+        // Creamos un panel para contener el scroll del árbol y el botón abajo
+        JPanel panelArbol = new JPanel(new BorderLayout());
+        
+        // Botón para imprimir el árbol
+        JButton btnImprimirArbol = new JButton("Imprimir Árbol en .txt");
+        btnImprimirArbol.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnImprimirArbol.setIcon(UIManager.getIcon("FileView.floppyDriveIcon")); // Icono por defecto de guardado
+        btnImprimirArbol.addActionListener(e -> imprimirArbolSintactico());
+        
+        // Panel inferior para el botón (para que no ocupe todo el ancho si no quieres)
+        JPanel panelBotonArbol = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        panelBotonArbol.add(btnImprimirArbol);
+
+        panelArbol.add(scrollSintactico, BorderLayout.CENTER);
+        panelArbol.add(panelBotonArbol, BorderLayout.SOUTH);
+
+        pestañas.addTab("Reporte Estructurado (Árbol)", panelArbol);
+        // -----------------------------------------------------------------------
 
         JScrollPane scrollDiccionario = new JScrollPane(tablaDiccionario);
         pestañas.addTab("Glosario de Errores", scrollDiccionario);
 
-       
+        // Tabla de errores
         String[] colsErrores = {"Línea", "Tipo", "Descripción del Error"};
         modeloErrores = new DefaultTableModel(colsErrores, 0) {
             @Override
@@ -221,8 +242,6 @@ public class AnalizadorGUI extends JFrame {
         tablaErrores.setForeground(new Color(200, 0, 0)); // Rojo oscuro
         tablaErrores.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         tablaErrores.setRowHeight(20);
-
-      
         tablaErrores.getColumnModel().getColumn(0).setPreferredWidth(60);
         tablaErrores.getColumnModel().getColumn(0).setMaxWidth(80);
         tablaErrores.getColumnModel().getColumn(1).setPreferredWidth(100);
@@ -232,27 +251,129 @@ public class AnalizadorGUI extends JFrame {
         scrollErrores.setBorder(BorderFactory.createTitledBorder(" Consola de Problemas "));
         scrollErrores.setPreferredSize(new Dimension(1000, 180));
 
-     
         JSplitPane splitCentral = new JSplitPane(JSplitPane.VERTICAL_SPLIT, pestañas, scrollErrores);
         splitCentral.setResizeWeight(0.60);
 
         add(panelCodigo, BorderLayout.NORTH);
         add(splitCentral, BorderLayout.CENTER);
 
-
         lblResumen = new JLabel(" Listo para analizar.");
         lblResumen.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
         add(lblResumen, BorderLayout.SOUTH);
 
-     
         btnAnalizar.addActionListener(e -> Analisis());
-
 
         inicializarEstilos();
         Coloreado();
-        colorearTexto(); 
-        actualizarNumerosDeLinea(); 
+        colorearTexto();
+        actualizarNumerosDeLinea();
     }
+
+    // --- MÉTODOS DE ARCHIVO (NUEVOS Y ACTUALIZADOS) ---
+
+    // Método para abrir archivo (Actualizado para guardar la referencia del archivo)
+    private void abrirArchivo() {
+        JFileChooser selector = new JFileChooser();
+        selector.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Archivos de texto (.txt)", "txt"));
+        
+        int resultado = selector.showOpenDialog(this);
+
+        if (resultado == JFileChooser.APPROVE_OPTION) {
+            archivoActual = selector.getSelectedFile(); // Guardamos el archivo seleccionado
+            try (BufferedReader lector = new BufferedReader(new FileReader(archivoActual))) {
+                StringBuilder contenido = new StringBuilder();
+                String linea;
+                while ((linea = lector.readLine()) != null) {
+                    contenido.append(linea).append("\n");
+                }
+                txtEntrada.setText(contenido.toString());
+                colorearTexto();
+                actualizarNumerosDeLinea();
+                
+                // Actualizamos el título de la ventana o etiqueta
+                setTitle("Analizador DSL - " + archivoActual.getName());
+                lblResumen.setText(" Archivo cargado: " + archivoActual.getName());
+                lblResumen.setForeground(new Color(0, 100, 0));
+
+            } catch (IOException ex) {
+                JOptionPane.showMessageDialog(this, "Error al leer el archivo: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    // Método Guardar (Sobreescribe si existe, o pide nombre si es nuevo)
+    private void guardarArchivo() {
+        if (archivoActual != null) {
+            escribirArchivo(archivoActual, txtEntrada.getText());
+        } else {
+            guardarArchivoComo();
+        }
+    }
+
+    // Método Guardar Como (Siempre pide nombre)
+    private void guardarArchivoComo() {
+        JFileChooser selector = new JFileChooser();
+        selector.setDialogTitle("Guardar código como...");
+        selector.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Archivos de texto (.txt)", "txt"));
+        
+        int userSelection = selector.showSaveDialog(this);
+
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            File archivoAGuardar = selector.getSelectedFile();
+            // Asegurar extensión .txt
+            if (!archivoAGuardar.getName().toLowerCase().endsWith(".txt")) {
+                archivoAGuardar = new File(archivoAGuardar.getAbsolutePath() + ".txt");
+            }
+            
+            escribirArchivo(archivoAGuardar, txtEntrada.getText());
+            archivoActual = archivoAGuardar;
+            setTitle("Analizador DSL - " + archivoActual.getName());
+        }
+    }
+
+    // Método auxiliar para imprimir el Árbol Sintáctico
+    private void imprimirArbolSintactico() {
+        String contenidoArbol = txtSintactico.getText();
+        if (contenidoArbol.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "El árbol está vacío. Primero ejecuta el análisis.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        JFileChooser selector = new JFileChooser();
+        selector.setDialogTitle("Guardar Árbol Sintáctico");
+        selector.setSelectedFile(new File("arbol_sintactico.txt"));
+        selector.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Archivos de texto (.txt)", "txt"));
+
+        int userSelection = selector.showSaveDialog(this);
+
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            File archivoAGuardar = selector.getSelectedFile();
+            if (!archivoAGuardar.getName().toLowerCase().endsWith(".txt")) {
+                archivoAGuardar = new File(archivoAGuardar.getAbsolutePath() + ".txt");
+            }
+            
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(archivoAGuardar))) {
+                writer.write("REPORTE DE DERIVACIÓN SINTÁCTICA (ÁRBOL)\n");
+                writer.write("========================================\n\n");
+                writer.write(contenidoArbol);
+                JOptionPane.showMessageDialog(this, "Árbol guardado exitosamente en:\n" + archivoAGuardar.getAbsolutePath());
+            } catch (IOException ex) {
+                JOptionPane.showMessageDialog(this, "Error al guardar el árbol: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    // Método genérico para escribir texto en disco
+    private void escribirArchivo(File archivo, String contenido) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(archivo))) {
+            writer.write(contenido);
+            lblResumen.setText(" Archivo guardado correctamente.");
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(this, "Error al guardar el archivo: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    // --- FIN MÉTODOS DE ARCHIVO ---
 
     private void actualizarNumerosDeLinea() {
         int lineas = doc.getDefaultRootElement().getElementCount();
@@ -306,7 +427,6 @@ public class AnalizadorGUI extends JFrame {
 
                 Matcher m;
 
-         
                 m = Pattern.compile("\\b[A-Za-z_][A-Za-z0-9_]*\\b").matcher(texto);
                 while (m.find()) {
                     String palabra = m.group().toUpperCase();
@@ -317,32 +437,28 @@ public class AnalizadorGUI extends JFrame {
                     }
                 }
 
-              
                 m = Pattern.compile("\\b\\d+\\b").matcher(texto);
                 while (m.find()) {
                     doc.setCharacterAttributes(m.start(), m.end() - m.start(), numero, false);
                 }
 
-          
                 m = Pattern.compile("[=+\\-*/<>;(){},]").matcher(texto);
                 while (m.find()) {
                     doc.setCharacterAttributes(m.start(), 1, operador, false);
                 }
 
-            
                 m = Pattern.compile("\"[^\"]*\"").matcher(texto);
                 while (m.find()) {
                     doc.setCharacterAttributes(m.start(), m.end() - m.start(), cadenaStyle, false);
                 }
 
-         
                 m = Pattern.compile("//.*").matcher(texto);
                 while (m.find()) {
                     doc.setCharacterAttributes(m.start(), m.end() - m.start(), verdeComentario, false);
                 }
 
             } catch (Exception e) {
- 
+
             } finally {
                 coloreando = false;
             }
@@ -382,7 +498,7 @@ public class AnalizadorGUI extends JFrame {
         List<ErrorReporte> listaErroresUnificada = new ArrayList<>();
 
         try {
-    
+
             Token[] tokens = DSLCore.tokenizador(codigo);
             Automata auto = new Automata(DSLCore.getEstadosAceptacionDSL(), DSLCore.getAlfabetoDSL(), DSLCore.getTransicionesDSL(), "INICIO", DSLCore.getEstadosAceptacionDSL());
 
@@ -391,13 +507,12 @@ public class AnalizadorGUI extends JFrame {
             List<Token> tokensValidos = new ArrayList<>();
 
             for (Token t : resultadosLexicos) {
-          
+
                 if (t.getTipoToken().startsWith("ERROR") || !t.existeSimbolo()) {
 
-             
-                    String codigoError = "DSL(100)"; 
+                    String codigoError = "DSL(100)";
                     if (t.getTipoToken().contains("CADENA")) {
-                        codigoError = "DSL(102)"; 
+                        codigoError = "DSL(102)";
                     } else if (t.getTipoToken().contains("SIMBOLO")) {
                         codigoError = "DSL(101)";
                     } else if (t.getTipoToken().contains("MALFORMADO")) {
@@ -409,7 +524,7 @@ public class AnalizadorGUI extends JFrame {
 
                     listaErroresUnificada.add(new ErrorReporte(t.getLinea(), "LÉXICO", desc));
                 } else {
-                 
+
                     tokensValidos.add(t);
                     modeloSimbolos.addRow(new Object[]{
                         t.getLexema(), t.getLinea(), t.getColumna(), t.getTipoToken(), t.getEstadoFinal()
@@ -417,7 +532,6 @@ public class AnalizadorGUI extends JFrame {
                 }
             }
 
-       
             if (!tokensValidos.isEmpty()) {
                 Token[] arrayTokensValidos = tokensValidos.toArray(new Token[0]);
 
@@ -432,13 +546,11 @@ public class AnalizadorGUI extends JFrame {
                 txtSintactico.setText(sb.toString());
                 txtSintactico.setCaretPosition(0);
 
-        
                 List<String> erroresSin = sintactico.getErrores();
                 for (String errStr : erroresSin) {
                     int linea = 0;
                     String descripcion = errStr;
 
-               
                     try {
                         if (errStr.contains("[Línea ")) {
                             int inicioNum = errStr.indexOf("[Línea ") + 7;
@@ -449,10 +561,9 @@ public class AnalizadorGUI extends JFrame {
                                 linea = Integer.parseInt(numStr.trim());
                             }
 
-                           
                             if (errStr.contains("]: ")) {
-                                String idPart = errStr.substring(0, errStr.indexOf("[")); 
-                                String msgPart = errStr.substring(errStr.indexOf("]: ") + 3); 
+                                String idPart = errStr.substring(0, errStr.indexOf("["));
+                                String msgPart = errStr.substring(errStr.indexOf("]: ") + 3);
                                 descripcion = idPart + msgPart;
                             }
                         }
@@ -538,38 +649,4 @@ public class AnalizadorGUI extends JFrame {
             {"DSL(999)", "Sistema", "Error crítico irrecuperable en el proceso de análisis."}
         };
     }
-
-    private void abrirArchivo() {
-        JFileChooser selector = new JFileChooser();
- 
-        selector.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Archivos de texto (.txt)", "txt"));
-
-        int resultado = selector.showOpenDialog(this);
-
-        if (resultado == JFileChooser.APPROVE_OPTION) {
-            java.io.File archivo = selector.getSelectedFile();
-            try (java.io.BufferedReader lector = new java.io.BufferedReader(new java.io.FileReader(archivo))) {
-
-                StringBuilder contenido = new StringBuilder();
-                String linea;
-                while ((linea = lector.readLine()) != null) {
-                    contenido.append(linea).append("\n");
-                }
-
-               
-                txtEntrada.setText(contenido.toString());
-
-            
-                colorearTexto();
-                actualizarNumerosDeLinea();
-
-                lblResumen.setText(" Archivo cargado: " + archivo.getName());
-                lblResumen.setForeground(new Color(0, 100, 0));
-
-            } catch (java.io.IOException ex) {
-                JOptionPane.showMessageDialog(this, "Error al leer el archivo: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-            }
-        }
-    }
-
 }
